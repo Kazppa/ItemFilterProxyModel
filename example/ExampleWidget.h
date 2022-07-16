@@ -15,7 +15,7 @@ class ExampleTreeView : public QTreeView
 public:
     Q_SIGNAL void currentIndexChanged(const QModelIndex &newIndex);
 
-    ExampleTreeView(QWidget *parent = nullptr) : QTreeView(parent) {}
+    ExampleTreeView(QWidget *parent = nullptr);
 
 protected:
     void currentChanged(const QModelIndex &, const QModelIndex&) override;
@@ -29,11 +29,13 @@ public:
     ExampleWidget(QWidget* parent = nullptr);
 
 private:
-    ExampleTreeView* createView();
-
     void fillSourceModel();
 
     void onSyncViewsCheckBox(bool isChecked);
+
+    void onSliderPressed();
+
+    void onSliderReleased();
 
     void onViewScrolled(int newValue);
 

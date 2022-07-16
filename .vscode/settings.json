@@ -4,7 +4,12 @@
         "qtgui": "cpp",
         "qrandomgenerator": "cpp",
         "source_location": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "algorithm": "cpp",
+        "chrono": "cpp",
+        "limits": "cpp",
+        "random": "cpp",
+        "utility": "cpp"
     },
     "cmake.debugConfig": {
         "visualizerFile": "${workspaceRoot}/qt6.natvis"
