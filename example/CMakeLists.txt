@@ -1,0 +1,3 @@
+add_executable(StructureProxyModelExample main.cpp ExampleWidget.cpp)
+
+target_link_libraries(StructureProxyModelExample StructureProxyModel)

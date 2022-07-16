@@ -1,0 +1,10 @@
+#ifndef __STRUCTUREPROXYMODELPRIVATE_H__
+#define __STRUCTUREPROXYMODELPRIVATE_H__
+
+
+class StructureProxyModelPrivate
+{
+
+};
+
+#endif // __STRUCTUREPROXTMODELPRIVATE_H__

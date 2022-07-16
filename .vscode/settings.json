@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "*.mysql": "sql",
+        "qtgui": "cpp",
+        "qrandomgenerator": "cpp",
+        "source_location": "cpp",
+        "xutility": "cpp"
+    },
+    "cmake.debugConfig": {
+        "visualizerFile": "${workspaceRoot}/qt6.natvis"
+    }
+}
