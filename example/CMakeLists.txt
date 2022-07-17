@@ -1,3 +1,3 @@
-add_executable(StructureProxyModelExample main.cpp ExampleWidget.cpp)
+add_executable(ItemFilterProxyModelExample main.cpp ExampleWidget.cpp ExampleWidget.h)
 
-target_link_libraries(StructureProxyModelExample StructureProxyModel)
+target_link_libraries(ItemFilterProxyModelExample ItemFilterProxyModel)

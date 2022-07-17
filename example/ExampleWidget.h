@@ -7,7 +7,18 @@
 class QCheckBox;
 class QStandardItem;
 class QStandardItemModel;
-class StructureProxyModel;
+
+#include "ItemFilterProxyModel.h"
+
+
+class ExampleItemFilterProxyModel : public ItemFilterProxyModel
+{
+public:
+    using ItemFilterProxyModel::ItemFilterProxyModel;
+
+    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent = {}) const override;
+};
+
 
 class ExampleTreeView : public QTreeView
 {
@@ -42,7 +53,7 @@ private:
     void onViewIndexChanged(const QModelIndex &newIndex);
 
     QStandardItemModel * _sourceModel;
-    StructureProxyModel* _proxyModel;
+    ExampleItemFilterProxyModel* _proxyModel;
     ExampleTreeView *_basicTreeView;
     ExampleTreeView *_restructuredTreeView;
     QCheckBox *_syncViewsheckBox;

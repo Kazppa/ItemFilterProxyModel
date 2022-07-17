@@ -9,7 +9,10 @@
         "chrono": "cpp",
         "limits": "cpp",
         "random": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "cmath": "cpp",
+        "xiosbase": "cpp",
+        "qvector": "cpp"
     },
     "cmake.debugConfig": {
         "visualizerFile": "${workspaceRoot}/qt6.natvis"

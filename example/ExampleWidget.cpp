@@ -1,6 +1,6 @@
 #include "ExampleWidget.h"
 
-#include <stack>
+#include <queue>
 
 #include <QBoxLayout>
 #include <QCheckBox>
@@ -11,7 +11,16 @@
 #include <QStandardItemModel>
 #include <QTimer>
 
-#include "structure_proxy_model/StructureProxyModel.h"
+
+bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const 
+{
+    if (sourceParent.isValid()) {
+        return false;
+    }
+    
+    return true;
+}
+
 
 ExampleTreeView::ExampleTreeView(QWidget *parent)
 {
@@ -31,12 +40,15 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 {
     _sourceModel = new QStandardItemModel(this);
     fillSourceModel();
+    _proxyModel = new ExampleItemFilterProxyModel(this);
+    _proxyModel->setSourceModel(_sourceModel);
 
     _basicTreeView = new ExampleTreeView();
     _basicTreeView->setModel(_sourceModel);
     _basicTreeView->expandAll();
+
     _restructuredTreeView = new ExampleTreeView();
-    _restructuredTreeView->setModel(_sourceModel);
+    _restructuredTreeView->setModel(_proxyModel);
     _restructuredTreeView->expandAll();
 
     _syncViewsheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
@@ -66,7 +78,7 @@ void ExampleWidget::fillSourceModel()
     rand.seed(415);
 
     const auto rootNodeCount = rand.bounded(4, 10);
-    std::stack<std::pair<QStandardItem *, int>> stack;
+    std::queue<std::pair<QStandardItem *, int>> queue;
     QChar c = u'A';
     for (int i = 0; i < rootNodeCount; ++i)
     {
@@ -78,17 +90,18 @@ void ExampleWidget::fillSourceModel()
         const auto subLevelCount = rand.bounded(0, 6);
         if (subLevelCount != 0)
         {
-            stack.push(std::make_pair(rootItem, subLevelCount));
+            queue.push(std::make_pair(rootItem, subLevelCount));
         }
     }
 
-    while (!stack.empty())
+    QMap<QChar, int> numbers;
+    while (!queue.empty())
     {
-        auto [parentItem, subLevelCount] = stack.top();
-        stack.pop();
+        auto [parentItem, subLevelCount] = queue.front();
+        queue.pop();
         const auto parentName = parentItem->text();
         const auto parentLetter = parentName[0];
-        auto number = QStringView(parentName.begin() + 1, parentName.end()).toInt();
+        auto& number = numbers[parentLetter];
 
         const auto childCount = rand.bounded(1, 4);
         for (int i = 0; i < childCount; ++i)
@@ -99,7 +112,7 @@ void ExampleWidget::fillSourceModel()
             parentItem->appendRow(childItem);
             if (--subLevelCount > 0)
             {
-                stack.push(std::make_pair(childItem, subLevelCount));
+                queue.push(std::make_pair(childItem, subLevelCount));
             }
         }
     }
@@ -146,6 +159,7 @@ void ExampleWidget::onViewScrolled(int newValue)
     const auto fromScrollBar = sender() == basicViewScrollBar ? basicViewScrollBar : restructuredViewScrollBar;
     const auto toScrollBar = fromScrollBar == basicViewScrollBar ? restructuredViewScrollBar : basicViewScrollBar;
 
+    // Calculate the relative value to get a percent of the range
     const auto fromMin = fromScrollBar->minimum();
     const auto fromMax = fromScrollBar->maximum();
     const auto relative = ((newValue - fromMin) * 100.0) / (fromMax - fromMin);
@@ -153,8 +167,7 @@ void ExampleWidget::onViewScrolled(int newValue)
     const auto toMin = toScrollBar->minimum();
     const auto toMax = toScrollBar->maximum();
     const auto toValue = ((relative * (toMax - toMin)) / 100) + toMin;
-
-    toScrollBar->setValue((int)toValue);
+    toScrollBar->setValue((int) std::round(toValue));
 }
 
 void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
@@ -166,3 +179,4 @@ void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
         toView->setCurrentIndex(newIndex);
     });
 }
+
