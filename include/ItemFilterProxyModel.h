@@ -12,9 +12,10 @@ class ItemFilterProxyModel : public QAbstractProxyModel
 
     struct ModelIndexInfo
     {
+        ModelIndexInfo() = delete;
+
         QPersistentModelIndex _sourceIndex;
         QPersistentModelIndex _parent;
-        QVector<QPersistentModelIndex> _children;
         bool _isVisible;
     };
 
@@ -35,6 +36,8 @@ public:
 
     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
     
+    virtual bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
+
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent = {}) const = 0;
 
     // Returned the mapped range for this proxyModel, in worst case the second value est equal to the first (both being invalid)
@@ -45,16 +48,18 @@ private:
 
     bool isSourceIndexVisible(const QModelIndex &sourceIndex) const;
 
-    const ModelIndexInfo& getProxyIndexInfo(const QModelIndex &proxyIndex) const;
+    void onModelReset();
 
     QModelIndex findProxyParentIndex(const QModelIndex &proxyIndex) const;
 
-    QVector<QPersistentModelIndex> findProxyChildrenIndexes(const QModelIndex &proxyIndex) const;
+    QVector<QPersistentModelIndex> findProxyChildrenIndexes(const QModelIndex &parentProxyIndex) const;
 
     // SourceIndex -> ProxyIndex
     mutable QHash<QPersistentModelIndex, QPersistentModelIndex> m_sourceIndexHash;
     // ProxyIndex -> infos
     mutable QHash<QPersistentModelIndex, ModelIndexInfo> m_proxyIndexHash;
+    // ProxtIndex -> ProxyIndex[]
+    mutable QHash<QPersistentModelIndex, QVector<QPersistentModelIndex>> m_proxyChildrenHash;
 };
 
 #endif // __STRUCTUREPROXYMODEL_H__
