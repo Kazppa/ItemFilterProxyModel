@@ -12,6 +12,7 @@ class ItemFilterProxyModel : public QAbstractProxyModel
 
     struct ModelIndexInfo
     {
+        QPersistentModelIndex _sourceIndex;
         QPersistentModelIndex _parent;
         QVector<QPersistentModelIndex> _children;
         bool _isVisible;

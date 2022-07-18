@@ -175,8 +175,15 @@ void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
     const auto fromView = sender() == _basicTreeView ? _basicTreeView : _restructuredTreeView;
     const auto toView = fromView == _basicTreeView ? _restructuredTreeView : _basicTreeView;
 
-    QTimer::singleShot(1, [=]() {
-        toView->setCurrentIndex(newIndex);
-    });
+    if (toView == _restructuredTreeView) {
+        QTimer::singleShot(1, [=]() {
+            toView->setCurrentIndex(_proxyModel->mapFromSource(newIndex));
+        });
+    }
+    else {
+        QTimer::singleShot(1, [=]() {
+            toView->setCurrentIndex(_proxyModel->mapToSource(newIndex));
+        });
+    }
 }
 

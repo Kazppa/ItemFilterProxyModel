@@ -66,7 +66,7 @@ int ItemFilterProxyModel::rowCount(const QModelIndex &parentIndex) const
         const auto sourceRowCount = sourceModel->rowCount();
         for (int i = 0; i < sourceRowCount; ++i) {
             const auto sourceIndex = sourceModel->index(i, 0);
-            const auto proxyIndex = mapToSource(sourceIndex);
+            const auto proxyIndex = mapFromSource(sourceIndex);
         }
     }
     return {};
@@ -88,8 +88,7 @@ QModelIndex ItemFilterProxyModel::mapToSource(const QModelIndex &proxyIndex) con
     }
     Q_ASSERT(proxyIndex.model() == this);
 
-    // TODO
-    return {};
+    return m_proxyIndexHash.value(proxyIndex)._sourceIndex;
 }
 
 QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) const
@@ -97,10 +96,9 @@ QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) 
     if (!sourceIndex.isValid()) {
         return {};
     }
-    Q_ASSERT(sourceIndex.model() == ItemFilterProxyModel::sourceModel());
+    Q_ASSERT(sourceIndex.model() == sourceModel());
 
-    // TODO
-    return {};
+    return m_sourceIndexHash.value(sourceIndex);
 }
 
 std::pair<QModelIndex, QModelIndex> ItemFilterProxyModel::mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const
