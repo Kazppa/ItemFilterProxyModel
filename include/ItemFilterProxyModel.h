@@ -5,24 +5,24 @@
 #include <QtCore/QPersistentModelIndex>
 #include <QtCore/QVector>
 
-
 class ItemFilterProxyModel : public QAbstractProxyModel
 {
     Q_OBJECT
 
-    struct ModelIndexInfo
+    struct ProxyModelIndexInfo
     {
-        ModelIndexInfo() = delete;
+        ProxyModelIndexInfo() = delete;
 
         QPersistentModelIndex _sourceIndex;
         QPersistentModelIndex _parent;
-        bool _isVisible;
     };
 
 public:
     ItemFilterProxyModel(QObject *parent);
 
     void setSourceModel(QAbstractItemModel *newSourceModel) override;
+
+    QVariant data(const QModelIndex &idx, int role) const override;
 
     QModelIndex index(int row, int column, const QModelIndex& parent = {}) const override;
 
@@ -48,7 +48,7 @@ private:
 
     bool isSourceIndexVisible(const QModelIndex &sourceIndex) const;
 
-    void onModelReset();
+    void resetModel();
 
     QModelIndex findProxyParentIndex(const QModelIndex &proxyIndex) const;
 
@@ -57,7 +57,7 @@ private:
     // SourceIndex -> ProxyIndex
     mutable QHash<QPersistentModelIndex, QPersistentModelIndex> m_sourceIndexHash;
     // ProxyIndex -> infos
-    mutable QHash<QPersistentModelIndex, ModelIndexInfo> m_proxyIndexHash;
+    mutable QHash<QPersistentModelIndex, ProxyModelIndexInfo> m_proxyIndexHash;
     // ProxtIndex -> ProxyIndex[]
     mutable QHash<QPersistentModelIndex, QVector<QPersistentModelIndex>> m_proxyChildrenHash;
 };
