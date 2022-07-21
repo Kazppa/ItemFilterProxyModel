@@ -14,6 +14,7 @@
 
 bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const 
 {
+    return true;
     if (sourceParent.isValid()) {
         return false;
     }
@@ -69,7 +70,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     setMinimumSize(600, 500);
 
     connect(_syncViewsheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
-    _syncViewsheckBox->setChecked(true);
+    //_syncViewsheckBox->setChecked(true);
 }
 
 void ExampleWidget::fillSourceModel()
@@ -175,15 +176,21 @@ void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
     const auto fromView = sender() == _basicTreeView ? _basicTreeView : _restructuredTreeView;
     const auto toView = fromView == _basicTreeView ? _restructuredTreeView : _basicTreeView;
 
-    if (toView == _restructuredTreeView) {
-        QTimer::singleShot(1, [=]() {
-            toView->setCurrentIndex(_proxyModel->mapFromSource(newIndex));
-        });
+    QModelIndex toViewIndex;
+    if (_restructuredTreeView->model() == _proxyModel) {
+        if (toView == _restructuredTreeView) {
+            toViewIndex = _proxyModel->mapFromSource(newIndex);
+        }
+        else {
+            toViewIndex = _proxyModel->mapToSource(newIndex);
+        }
     }
     else {
-        QTimer::singleShot(1, [=]() {
-            toView->setCurrentIndex(_proxyModel->mapToSource(newIndex));
-        });
+        toViewIndex = newIndex;
     }
+
+     QTimer::singleShot(1, [=]() {
+        toView->setCurrentIndex(toViewIndex);
+    });
 }
 

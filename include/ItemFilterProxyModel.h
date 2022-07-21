@@ -24,6 +24,8 @@ public:
 
     QVariant data(const QModelIndex &idx, int role) const override;
 
+    void multiData(const QModelIndex& idx, QModelRoleDataSpan roleDataSpan) const override;
+
     QModelIndex index(int row, int column, const QModelIndex& parent = {}) const override;
 
     QModelIndex parent(const QModelIndex &childIndex) const override;
