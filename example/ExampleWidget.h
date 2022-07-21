@@ -7,6 +7,7 @@
 class QCheckBox;
 class QStandardItem;
 class QStandardItemModel;
+class ExampleItemModel;
 
 #include "ItemFilterProxyModel.h"
 
@@ -40,8 +41,6 @@ public:
     ExampleWidget(QWidget* parent = nullptr);
 
 private:
-    void fillSourceModel();
-
     void onSyncViewsCheckBox(bool isChecked);
 
     void onSliderPressed();
@@ -52,7 +51,7 @@ private:
 
     void onViewIndexChanged(const QModelIndex &newIndex);
 
-    QStandardItemModel * _sourceModel;
+    ExampleItemModel * _sourceModel;
     ExampleItemFilterProxyModel* _proxyModel;
     ExampleTreeView *_basicTreeView;
     ExampleTreeView *_restructuredTreeView;

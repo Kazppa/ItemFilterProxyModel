@@ -11,6 +11,8 @@
 #include <QStandardItemModel>
 #include <QTimer>
 
+#include "ExampleItemModel.h"
+
 
 bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const 
 {
@@ -39,8 +41,7 @@ void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelInde
 
 ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 {
-    _sourceModel = new QStandardItemModel(this);
-    fillSourceModel();
+    _sourceModel = new ExampleItemModel(this);
     _proxyModel = new ExampleItemFilterProxyModel(this);
     _proxyModel->setSourceModel(_sourceModel);
 
@@ -49,7 +50,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     _basicTreeView->expandAll();
 
     _restructuredTreeView = new ExampleTreeView();
-    _restructuredTreeView->setModel(_proxyModel);
+    _restructuredTreeView->setModel(_sourceModel);
     _restructuredTreeView->expandAll();
 
     _syncViewsheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
@@ -71,52 +72,6 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 
     connect(_syncViewsheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
     //_syncViewsheckBox->setChecked(true);
-}
-
-void ExampleWidget::fillSourceModel()
-{
-    QRandomGenerator rand;
-    rand.seed(415);
-
-    const auto rootNodeCount = rand.bounded(4, 10);
-    std::queue<std::pair<QStandardItem *, int>> queue;
-    QChar c = u'A';
-    for (int i = 0; i < rootNodeCount; ++i)
-    {
-        auto rootItem = new QStandardItem;
-        rootItem->setText(c);
-        c.unicode() += 1;
-        _sourceModel->appendRow(rootItem);
-
-        const auto subLevelCount = rand.bounded(0, 6);
-        if (subLevelCount != 0)
-        {
-            queue.push(std::make_pair(rootItem, subLevelCount));
-        }
-    }
-
-    QMap<QChar, int> numbers;
-    while (!queue.empty())
-    {
-        auto [parentItem, subLevelCount] = queue.front();
-        queue.pop();
-        const auto parentName = parentItem->text();
-        const auto parentLetter = parentName[0];
-        auto& number = numbers[parentLetter];
-
-        const auto childCount = rand.bounded(1, 4);
-        for (int i = 0; i < childCount; ++i)
-        {
-            const auto childName = parentLetter + QString::number(++number);
-            auto childItem = new QStandardItem;
-            childItem->setText(childName);
-            parentItem->appendRow(childItem);
-            if (--subLevelCount > 0)
-            {
-                queue.push(std::make_pair(childItem, subLevelCount));
-            }
-        }
-    }
 }
 
 void ExampleWidget::onSyncViewsCheckBox(bool isChecked)

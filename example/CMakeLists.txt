@@ -1,3 +1,3 @@
-add_executable(ItemFilterProxyModelExample main.cpp ExampleWidget.cpp ExampleWidget.h)
+add_executable(ItemFilterProxyModelExample main.cpp ExampleWidget.cpp ExampleWidget.h ExampleItemModel.h ExampleItemModel.cpp)
 
 target_link_libraries(ItemFilterProxyModelExample ItemFilterProxyModel)

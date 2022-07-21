@@ -12,7 +12,11 @@
         "utility": "cpp",
         "cmath": "cpp",
         "xiosbase": "cpp",
-        "qvector": "cpp"
+        "qvector": "cpp",
+        "qstack": "cpp",
+        "qstandarditemmodel": "cpp",
+        "memory": "cpp",
+        "vector": "cpp"
     },
     "cmake.debugConfig": {
         "visualizerFile": "${workspaceRoot}/qt6.natvis"

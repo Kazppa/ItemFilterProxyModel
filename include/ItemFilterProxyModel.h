@@ -9,14 +9,6 @@ class ItemFilterProxyModel : public QAbstractProxyModel
 {
     Q_OBJECT
 
-    struct ProxyModelIndexInfo
-    {
-        ProxyModelIndexInfo() = delete;
-
-        QPersistentModelIndex _sourceIndex;
-        QPersistentModelIndex _parent;
-    };
-
 public:
     ItemFilterProxyModel(QObject *parent);
 
@@ -50,11 +42,15 @@ private:
 
     bool isSourceIndexVisible(const QModelIndex &sourceIndex) const;
 
-    void resetModel();
+    void refreshProxyIndexes() const;
 
-    QModelIndex findProxyParentIndex(const QModelIndex &proxyIndex) const;
+    struct ProxyModelIndexInfo
+    {
+        ProxyModelIndexInfo() = delete;
 
-    QVector<QPersistentModelIndex> findProxyChildrenIndexes(const QModelIndex &parentProxyIndex) const;
+        QPersistentModelIndex _sourceIndex;
+        QPersistentModelIndex _parent;
+    };
 
     // SourceIndex -> ProxyIndex
     mutable QHash<QPersistentModelIndex, QPersistentModelIndex> m_sourceIndexHash;
