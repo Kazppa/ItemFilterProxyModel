@@ -67,7 +67,7 @@ void ItemFilterProxyModel::multiData(const QModelIndex& idx, QModelRoleDataSpan 
 
 QModelIndex ItemFilterProxyModel::index(int row,int column, const QModelIndex &parent) const 
 {
-     return createIndex(row, column, nullptr);  
+     return createIndex(row, column);  
 }
 
 QModelIndex ItemFilterProxyModel::parent(const QModelIndex &childIndex) const
@@ -99,7 +99,7 @@ int ItemFilterProxyModel::columnCount(const QModelIndex &parentIndex) const
         return 0;
     }
     const auto sourceIndex = mapToSource(parentIndex);
-    Q_ASSERT(sourceIndex.isValid() || !parentIndex.isValid());
+    // Q_ASSERT(sourceIndex.isValid() || !parentIndex.isValid());
     return sourceModel()->columnCount(sourceIndex);
 }
 
@@ -240,8 +240,8 @@ namespace
 {
     struct ModelIndexDetails
     { 
-        QModelIndex _proxyParent;
-        QModelIndex _sourceParent;
+        QPersistentModelIndex _proxyParent;
+        QPersistentModelIndex _sourceParent;
     };
 }
 
@@ -249,7 +249,7 @@ void ItemFilterProxyModel::refreshProxyIndexes() const
 {
     m_sourceIndexHash.clear();
     m_proxyIndexHash.clear();
-    m_proxyIndexHash.clear();
+    m_proxyChildrenHash.clear();
     
     QStack<ModelIndexDetails> stack;
     const auto sourceModel = ItemFilterProxyModel::sourceModel();
@@ -259,11 +259,12 @@ void ItemFilterProxyModel::refreshProxyIndexes() const
         const auto isRootNodeVisible = filterAcceptsRow(row);
         for (int col = 0; col < rootColumnCount; ++col) {
             const auto sourceIndex = sourceModel->index(row, col);
+            Q_ASSERT(sourceIndex.isValid());
             const auto proxyIndex = isRootNodeVisible ? createIndex(row, col) : QModelIndex();
             if (isRootNodeVisible) {
                 m_sourceIndexHash.insert(sourceIndex, proxyIndex);
-                m_proxyIndexHash.insert(proxyIndex, { sourceIndex, QModelIndex() });
-                m_proxyChildrenHash[QModelIndex()].emplace_back(proxyIndex);
+                m_proxyIndexHash.emplace(proxyIndex, sourceIndex, QModelIndex());
+                m_proxyChildrenHash[QModelIndex()].push_back(proxyIndex);
             }
             stack.push({ proxyIndex, sourceIndex });
         }
@@ -284,7 +285,7 @@ void ItemFilterProxyModel::refreshProxyIndexes() const
                     const auto childProxyIndex = createIndex(filterRow++, childSourceCol);
                     m_sourceIndexHash.insert(childSourceIndex, childProxyIndex);
                     m_proxyIndexHash.insert(childProxyIndex, { childSourceIndex, proxyParent });
-                    m_proxyChildrenHash[proxyParent].emplace_back(childProxyIndex);
+                    m_proxyChildrenHash[proxyParent].push_back(childProxyIndex);
                     stack.push({ childProxyIndex, childSourceIndex });
                 }
                 else {

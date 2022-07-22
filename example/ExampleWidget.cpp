@@ -50,7 +50,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     _basicTreeView->expandAll();
 
     _restructuredTreeView = new ExampleTreeView();
-    _restructuredTreeView->setModel(_sourceModel);
+    _restructuredTreeView->setModel(_proxyModel);
     _restructuredTreeView->expandAll();
 
     _syncViewsheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));

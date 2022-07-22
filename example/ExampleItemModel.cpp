@@ -100,7 +100,7 @@ int ExampleItemModel::nodeRow(const Node* node) const noexcept
 
 void ExampleItemModel::generateExampleData()
 {
-    // m_rootNodes.clear();
+    m_rootNodes.clear();
 
     QRandomGenerator rand;
     rand.seed(415);
@@ -126,7 +126,7 @@ void ExampleItemModel::generateExampleData()
     {
         auto [parentNode, subLevelCount] = queue.front();
         queue.pop();
-        const auto parentName = parentNode->m_text;
+        const auto& parentName = parentNode->m_text;
         const auto parentLetter = parentName[0];
         auto& number = numbers[parentLetter];
 
@@ -135,6 +135,7 @@ void ExampleItemModel::generateExampleData()
         for (int i = 0; i < childCount; ++i) {
             const auto childName = parentLetter + QString::number(++number);
             auto childItem = new Node(childName);
+            childItem->m_parent = parentNode;
             parentNode->m_children.push_back(childItem);
             if (--subLevelCount > 0) {
                 queue.push(std::make_pair(childItem, subLevelCount));

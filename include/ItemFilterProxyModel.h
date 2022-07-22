@@ -46,16 +46,17 @@ private:
 
     struct ProxyModelIndexInfo
     {
-        ProxyModelIndexInfo() = delete;
+        ProxyModelIndexInfo(const QPersistentModelIndex &sourceIndex, const QPersistentModelIndex &proxyParent) :
+            _sourceIndex(sourceIndex), _parent(proxyParent) {}
 
         QPersistentModelIndex _sourceIndex;
         QPersistentModelIndex _parent;
     };
 
     // SourceIndex -> ProxyIndex
-    mutable QHash<QPersistentModelIndex, QPersistentModelIndex> m_sourceIndexHash;
+    mutable QHash<QPersistentModelIndex, QModelIndex> m_sourceIndexHash;
     // ProxyIndex -> infos
-    mutable QHash<QPersistentModelIndex, ProxyModelIndexInfo> m_proxyIndexHash;
+    mutable QHash<QModelIndex, ProxyModelIndexInfo> m_proxyIndexHash;
     // ProxtIndex -> ProxyIndex[]
     mutable QHash<QPersistentModelIndex, QVector<QPersistentModelIndex>> m_proxyChildrenHash;
 };
