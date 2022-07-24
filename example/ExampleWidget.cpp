@@ -16,7 +16,6 @@
 
 bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const 
 {
-    return true;
     if (sourceParent.isValid()) {
         return false;
     }
@@ -71,7 +70,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     setMinimumSize(600, 500);
 
     connect(_syncViewsheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
-    //_syncViewsheckBox->setChecked(true);
+    _syncViewsheckBox->setChecked(true);
 }
 
 void ExampleWidget::onSyncViewsCheckBox(bool isChecked)

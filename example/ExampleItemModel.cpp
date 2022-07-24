@@ -26,10 +26,12 @@ QModelIndex ExampleItemModel::index(int row, int column, const QModelIndex &pare
 {
     if (parent.isValid()) {
         const auto parentNode = nodeFromIndex(parent);
+        Q_ASSERT(row >= 0 && row < parentNode->m_children.size());
         return createIndex(row, column, parentNode->m_children[row]);
     }
 
     // Root node
+    Q_ASSERT(row >= 0 && row < m_rootNodes.size());
     return createIndex(row, column, m_rootNodes[row].get());
 }
 
