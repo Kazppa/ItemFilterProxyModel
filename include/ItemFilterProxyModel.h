@@ -9,10 +9,10 @@
 
 namespace std
 {
-    template <>
+    template<>
     struct hash<QModelIndex>
     {
-        std::size_t operator()(const QModelIndex &idx) const noexcept
+        std::size_t operator()(const QModelIndex &idx) const
         {
             return qHash(idx);
         }
@@ -24,13 +24,20 @@ class ItemFilterProxyModel : public QAbstractProxyModel
     Q_OBJECT
 
 public:
+    class ProxyIndexInfo
+    {
+    public:
+        explicit ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyParentIndex = QModelIndex()) :
+            m_source(sourceIndex), m_parent(proxyParentIndex) {}
+    
+        QModelIndex m_source;
+        QModelIndex m_parent;
+        QModelIndexList m_children{};
+    };
+
     ItemFilterProxyModel(QObject *parent);
 
     void setSourceModel(QAbstractItemModel *newSourceModel) override;
-
-    QVariant data(const QModelIndex &idx, int role) const override;
-
-    void multiData(const QModelIndex& idx, QModelRoleDataSpan roleDataSpan) const override;
 
     QModelIndex index(int row, int column, const QModelIndex& parent = {}) const override;
 
@@ -43,8 +50,13 @@ public:
     QModelIndex mapToSource(const QModelIndex &proxyIndex) const override;
 
     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
+    
+    virtual bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
 
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent = {}) const = 0;
+
+    // Returned the mapped range for this proxyModel, in worst case the second value est equal to the first (both being invalid)
+    std::pair<QModelIndex, QModelIndex> mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const;
 
 private:
     void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
@@ -53,18 +65,12 @@ private:
 
     void refreshProxyIndexes();
 
-    struct ProxyIndex
-    {
-        ProxyIndex(const QModelIndex& sourceIndex, const QModelIndex &index, const QModelIndex& parent = {}, QModelIndexList children = {});
-        
-        QModelIndex m_source;
-        QModelIndex m_index;
-        QModelIndex m_parent{};
-        QModelIndexList m_children{};
-    };
+    quintptr m_maxId {0};
 
-    int m_idCount = 0;
-    std::vector<std::unique_ptr<ProxyIndex>> m_indexes;
+    // SourceIndex -> ProxyIndex
+    mutable QHash<QModelIndex, QModelIndex> m_sourceIndexHash;
+    // ProxyIndex -> infos
+    mutable std::unordered_map<QModelIndex, std::unique_ptr<ProxyIndexInfo>> m_proxyIndexHash;
 };
 
 #endif // __STRUCTUREPROXYMODEL_H__

@@ -1,14 +1,12 @@
 #include "ExampleWidget.h"
 
-#include <queue>
-
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QMenu>
 #include <QRandomGenerator>
 #include <QScrollBar>
-#include <QStandardItemModel>
 #include <QTimer>
 
 #include "ExampleItemModel.h"
@@ -16,18 +14,46 @@
 
 bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const 
 {
-    if (sourceParent.isValid()) {
+    const auto sourceIndex = sourceModel()->index(sourceRow, 0, sourceParent);
+    const auto text = sourceModel()->data(sourceIndex, Qt::DisplayRole).toString();
+    if (text == QStringLiteral("A")) {
         return false;
     }
-    
     return true;
 }
 
+////////////////////////
 
-ExampleTreeView::ExampleTreeView(QWidget *parent)
+ExampleTreeView::ExampleTreeView(QWidget *parent) :
+    QTreeView(parent)
 {
     setHeaderHidden(true);
     verticalScrollBar()->setTracking(true);
+
+    setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
+    auto contextMenu = new QMenu(this);
+    auto expandAction = contextMenu->addAction(tr("Expand"));
+    auto collapseAction = contextMenu->addAction(tr("Collapse"));
+    contextMenu->addSeparator();
+    auto expandAllAction = contextMenu->addAction(tr("Expand all"));
+    auto collapseAllAction = contextMenu->addAction(tr("Collapse all"));
+
+    connect(expandAllAction, &QAction::triggered, this, &QTreeView::expandAll);
+    connect(collapseAllAction, &QAction::triggered, this, &QTreeView::collapseAll);
+    connect(expandAction, &QAction::triggered, this, [this]() {
+        expandRecursively(currentIndex());
+    });
+        connect(collapseAction, &QAction::triggered, this, [this]() {
+        collapse(currentIndex());
+    });
+    connect(this, &QTreeView::customContextMenuRequested, this, [=](const QPoint& pos) {
+        const auto index = currentIndex();
+        const auto isValid = index.isValid();
+        const auto indexExpanded = isValid ? isExpanded(index) : false;
+        expandAction->setVisible(isValid && !indexExpanded);
+        collapseAction->setVisible(isValid && indexExpanded);
+        contextMenu->popup(mapToGlobal(pos));
+    });
 }
 
 void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelIndex &prevIdx)

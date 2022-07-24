@@ -43,36 +43,28 @@ public:
     QModelIndex mapToSource(const QModelIndex &proxyIndex) const override;
 
     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
-    
-    virtual bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
 
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent = {}) const = 0;
-
-    // Returned the mapped range for this proxyModel, in worst case the second value est equal to the first (both being invalid)
-    std::pair<QModelIndex, QModelIndex> mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const;
 
 private:
     void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
 
     bool isSourceIndexVisible(const QModelIndex &sourceIndex) const;
 
-    void refreshProxyIndexes() const;
+    void refreshProxyIndexes();
 
-    struct ProxyModelIndexInfo
+    struct ProxyIndex
     {
-        ProxyModelIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyParent) :
-            _sourceIndex(sourceIndex), _parent(proxyParent) {}
-
-        QModelIndex _sourceIndex;
-        QModelIndex _parent;
+        ProxyIndex(const QModelIndex& sourceIndex, const QModelIndex &index, const QModelIndex& parent = {}, QModelIndexList children = {});
+        
+        QModelIndex m_source;
+        QModelIndex m_index;
+        QModelIndex m_parent{};
+        QModelIndexList m_children{};
     };
 
-    // SourceIndex -> ProxyIndex
-    mutable std::unordered_map<QModelIndex, QModelIndex> m_sourceIndexHash;
-    // ProxyIndex -> infos
-    mutable std::unordered_map<QModelIndex, ProxyModelIndexInfo> m_proxyIndexHash;
-    // ProxtIndex -> ProxyIndex[]
-    mutable std::unordered_map<QModelIndex, QVector<QModelIndex>> m_proxyChildrenHash;
+    int m_idCount = 0;
+    std::vector<std::unique_ptr<ProxyIndex>> m_indexes;
 };
 
 #endif // __STRUCTUREPROXYMODEL_H__

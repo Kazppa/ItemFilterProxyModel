@@ -3,20 +3,6 @@
 #include <QtCore/QStack>
 #include <QtCore/QDateTime>
 
-
-ItemFilterProxyModel::ProxyIndex::ProxyIndex(const QModelIndex& sourceIndex, const QModelIndex &index,
-    const QModelIndex& parent, QModelIndexList children) :
-    m_source(sourceIndex),
-    m_index(index),
-    m_parent(parent),
-    m_children(std::move(children))
-{
-    Q_ASSERT((!index.isValid() || !parent.isValid()) || index.model() == parent.model());
-    Q_ASSERT(!sourceIndex.isValid() || (sourceIndex.model() != index.model()));
-}
-
-///////////////////////////////
-
  ItemFilterProxyModel::ItemFilterProxyModel(QObject *parent) :
     QAbstractProxyModel(parent)
 {
@@ -24,17 +10,20 @@ ItemFilterProxyModel::ProxyIndex::ProxyIndex(const QModelIndex& sourceIndex, con
 
 void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)
 {
-    auto previousModel = sourceModel();
-    if (newSourceModel == previousModel) {
+    auto previousSourceModel = sourceModel();
+    if (newSourceModel == previousSourceModel) {
         return;
     }
 
     beginResetModel();
-    if (previousModel) {
-        disconnect(previousModel, nullptr, this, nullptr);
+    if (previousSourceModel) {
+        disconnect(previousSourceModel, nullptr, this, nullptr);
     }
-    QAbstractProxyModel::setSourceModel(newSourceModel);
     disconnect(newSourceModel, nullptr, this, nullptr);
+    QAbstractProxyModel::setSourceModel(newSourceModel);
+    if (!newSourceModel) {
+        return;
+    }
 
     connect(newSourceModel, &QAbstractItemModel::dataChanged, this, &ItemFilterProxyModel::sourceDataChanged);
     connect(newSourceModel, &QAbstractItemModel::modelAboutToBeReset, this, &ItemFilterProxyModel::beginResetModel);
@@ -63,55 +52,14 @@ void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)
     endResetModel();
 }
 
-QVariant ItemFilterProxyModel::data(const QModelIndex &idx, int role) const 
+QModelIndex ItemFilterProxyModel::index(int row,int column, const QModelIndex &parent) const 
 {
-    if (!idx.isValid()) {
+    const auto it = m_proxyIndexHash.find(parent);
+    if (it == m_proxyIndexHash.end()) {
+        Q_ASSERT(false);
         return {};
     }
-    Q_ASSERT(idx.model() == this);
-    return sourceModel()->data(mapToSource(idx), role);
-}
-
-void ItemFilterProxyModel::multiData(const QModelIndex& idx, QModelRoleDataSpan roleDataSpan) const 
-{
-    Q_ASSERT(idx.isValid());
-    Q_ASSERT(idx.model() == this);
-    return sourceModel()->multiData(mapToSource(idx), roleDataSpan);
-}
-
-QModelIndex ItemFilterProxyModel::index(int row,int column, const QModelIndex &parentIndex) const 
-{
-    Q_ASSERT(row >= 0);
-    Q_ASSERT(!parentIndex.isValid() || parentIndex.model() == this);
-    if (parentIndex.isValid()) {
-        const auto begin = m_indexes.begin();
-        const auto end = m_indexes.end();
-        const auto parentIt = std::find_if(begin, end, [&](const auto &modelIndex) {
-            return modelIndex->m_index == parentIndex;
-        });
-        if (parentIt == end) {
-            Q_ASSERT(false);
-            return {};
-        }
-        Q_ASSERT(row >= 0 && row < (*parentIt)->m_children.size());
-        return (*parentIt)->m_children.at(row);
-        
-    }
-    else {
-        const QModelIndex parent;
-        int currentRow = 0;
-        for (const auto& modelIndex : m_indexes) {
-            if (modelIndex->m_parent != parent) {
-                continue;
-            }
-            if (currentRow++ == row) {
-                return modelIndex->m_index;
-            }
-        }
-    }
-
-    Q_ASSERT(false);
-    return {};
+    return it->second->m_children.at(row);
 }
 
 QModelIndex ItemFilterProxyModel::parent(const QModelIndex &childIndex) const
@@ -119,15 +67,12 @@ QModelIndex ItemFilterProxyModel::parent(const QModelIndex &childIndex) const
     if (!childIndex.isValid()) {
         return {};
     }
-    Q_ASSERT(childIndex.model() == this);
 
-    const auto it = std::find_if(m_indexes.cbegin(), m_indexes.cend(), [&](const auto& modelIndex) {
-        return modelIndex->m_index == childIndex;
-    });
-    if (it == m_indexes.end()) {
+    const auto it = m_proxyIndexHash.find(childIndex);
+    if(it == m_proxyIndexHash.end()) {
         return {};
     }
-    return (*it)->m_parent;
+    return it->second->m_parent;
 }
 
 int ItemFilterProxyModel::rowCount(const QModelIndex &parentIndex) const
@@ -135,31 +80,23 @@ int ItemFilterProxyModel::rowCount(const QModelIndex &parentIndex) const
     if (!sourceModel()) {
         return 0;
     }
-    Q_ASSERT(!parentIndex.isValid() || parentIndex.model() == this);
-    
-    if (parentIndex.isValid()) {
-        const auto it = std::find_if(m_indexes.cbegin(), m_indexes.cend(), [&](const auto& proxyIndex) {
-            return proxyIndex->m_index == parentIndex;
-        });
-        return it == m_indexes.end() ? 0 : (*it)->m_children.size();
+
+    const auto it = m_proxyIndexHash.find(parentIndex);
+    if (it == m_proxyIndexHash.end()) {
+        Q_ASSERT(false);
+        return 0;
     }
-    else {
-        return std::count_if(m_indexes.cbegin(), m_indexes.cend(), [parent = QModelIndex()](const auto& proxyIndex) {
-            return proxyIndex->m_parent == parent;
-        });
-    }
+    return it->second->m_children.size();
 }
 
 int ItemFilterProxyModel::columnCount(const QModelIndex &parentIndex) const
 {
-    auto baseModel = sourceModel();
-    if (!baseModel) {
+    if (!sourceModel()) {
         return 0;
     }
-    Q_ASSERT(!parentIndex.isValid() || parentIndex.model() == this);
-    
     const auto sourceIndex = mapToSource(parentIndex);
-    return baseModel->columnCount(sourceIndex);
+    Q_ASSERT(sourceIndex.isValid() || !parentIndex.isValid());
+    return sourceModel()->columnCount(sourceIndex);
 }
 
 QModelIndex ItemFilterProxyModel::mapToSource(const QModelIndex &proxyIndex) const
@@ -168,15 +105,14 @@ QModelIndex ItemFilterProxyModel::mapToSource(const QModelIndex &proxyIndex) con
         return {};
     }
     Q_ASSERT(proxyIndex.model() == this);
-    static int counter = 0;
-    ++counter;
-    const auto it = std::find_if(m_indexes.begin(), m_indexes.end(), [&](const auto& modelIndex) {
-        return modelIndex->m_index == proxyIndex;
-    });
-    if (it == m_indexes.end()) {
+
+    const auto it = m_proxyIndexHash.find(proxyIndex);
+    if (it == m_proxyIndexHash.end()) {
+        Q_ASSERT(false);
         return {};
     }
-    return (*it)->m_source;
+    
+    return it->second->m_source;
 }
 
 QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) const
@@ -185,14 +121,97 @@ QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) 
         return {};
     }
     Q_ASSERT(sourceIndex.model() == sourceModel());
-    
-    const auto it = std::find_if(m_indexes.begin(), m_indexes.end(), [&](const auto& modelIndex) {
-        return modelIndex->m_source == sourceIndex;
-    });
-    if (it == m_indexes.end()) {
-        return {};
+    return m_sourceIndexHash.value(sourceIndex);
+}
+
+bool ItemFilterProxyModel::lessThan(const QModelIndex &leftIndex, const QModelIndex &rightIndex) const
+{
+    const auto left = leftIndex.data(Qt::DisplayRole);
+    const auto right = rightIndex.data(Qt::DisplayRole);
+
+    if (left.userType() == QVariant::Invalid)
+        return false;
+    if (right.userType() == QVariant::Invalid)
+        return true;
+    switch (left.userType()) {
+    case QVariant::Int:
+        return left.toInt() < right.toInt();
+    case QVariant::UInt:
+        return left.toUInt() < right.toUInt();
+    case QVariant::LongLong:
+        return left.toLongLong() < right.toLongLong();
+    case QVariant::ULongLong:
+        return left.toULongLong() < right.toULongLong();
+    case QMetaType::Float:
+        return left.toFloat() < right.toFloat();
+    case QVariant::Double:
+        return left.toDouble() < right.toDouble();
+    case QVariant::Char:
+        return left.toChar() < right.toChar();
+    case QVariant::Date:
+        return left.toDate() < right.toDate();
+    case QVariant::Time:
+        return left.toTime() < right.toTime();
+    case QVariant::DateTime:
+        return left.toDateTime() < right.toDateTime();
+
+    case QVariant::String:
+    default:
+        return left.toString().compare(right.toString()) < 0;
     }
-    return (*it)->m_index;
+}
+
+std::pair<QModelIndex, QModelIndex> ItemFilterProxyModel::mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const
+{
+    Q_ASSERT(sourceLeft.isValid() && sourceRight.isValid());
+    Q_ASSERT(sourceLeft.parent() == sourceRight.parent());
+    Q_ASSERT(sourceLeft.model() == sourceModel());
+    Q_ASSERT(sourceRight.model() == sourceModel());
+
+    const auto sourceParent = sourceLeft.parent();
+    const auto topRow = sourceLeft.row();
+    const auto bottomRow = sourceRight.row();
+    const auto sourceColumn = sourceLeft.column();
+
+    auto proxyLeft = mapFromSource(sourceLeft);
+    auto proxyRight = mapFromSource(sourceRight);
+    const auto isBaseProxyRightValid = proxyRight.isValid();
+
+    if (proxyLeft.isValid() && isBaseProxyRightValid) {
+        return std::make_pair(proxyLeft, proxyRight);
+    }
+
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    for (int i = topRow + 1; i < bottomRow; ++i) {
+        const auto sourceIndex = sourceModel->index(i, sourceColumn, sourceParent);
+        const auto proxyIndex = mapFromSource(sourceIndex);
+        if (!proxyIndex.isValid()) {
+            // Hidden index
+            continue;
+        }
+
+        if (!proxyLeft.isValid()) {
+            if (isBaseProxyRightValid) {
+                // Range already found
+                return std::make_pair(proxyIndex, proxyRight);
+            }
+            proxyLeft = proxyIndex;
+        }
+
+        if (!isBaseProxyRightValid) {
+            proxyRight = proxyIndex;
+        }
+    }
+
+    if (!proxyLeft.isValid()) {
+        return std::make_pair(proxyRight, proxyRight);
+    }
+    else if (!proxyRight.isValid()) {
+        return std::make_pair(proxyLeft, proxyLeft);
+    }
+    else {
+        return std::make_pair(proxyLeft, proxyRight);
+    }
 }
 
 void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles)
@@ -201,40 +220,74 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
         return;
     }
 
-    // TODO
+    const auto proxyRange = mapToSourceRange(sourceLeft, sourceRight);
+    if (proxyRange.first.isValid()) {
+        Q_EMIT dataChanged(proxyRange.first, proxyRange.second, roles);
+    }
 }
+
+namespace
+{
+    struct SourceProxyInfo
+    {
+        QModelIndex _sourceParent;
+        QModelIndex _proxyParent;
+        ItemFilterProxyModel::ProxyIndexInfo * _parentInfo;
+    };
+}
+
 
 void ItemFilterProxyModel::refreshProxyIndexes()
 {
-    m_indexes.clear();
-    m_indexes.reserve(200);
-    m_idCount = 0;
+    m_maxId = 0;
+    m_sourceIndexHash.clear();
+    m_proxyIndexHash.clear();
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    QStack<SourceProxyInfo> stack;
 
-    auto baseModel = sourceModel();
-    Q_ASSERT(baseModel);
-    QStack<ProxyIndex *> stack;
-
-    for (int rowCount = baseModel->rowCount(), row = 0; row < rowCount; ++row) {
-        const auto columnCount = baseModel->columnCount();
-        for (auto col = 0; col < columnCount; ++col) {
-            const auto sourceIndex = baseModel->index(row, col);
-            m_indexes.push_back(std::make_unique<ProxyIndex>(sourceIndex, createIndex(row, col, m_idCount++)));
-            stack.push(m_indexes.back().get());
+    // Parent of all root nodes
+    auto hiddenRootIndex = m_proxyIndexHash.emplace(QModelIndex(), new ProxyIndexInfo(QModelIndex())).first->second.get();
+    const auto rootRowCount = sourceModel->rowCount();
+    const auto rootColumnCount = sourceModel->columnCount();
+    for (int row = 0; row < rootRowCount; ++row) {
+        const auto isRootNodeVisible = filterAcceptsRow(row);
+        for (int col = 0; col < rootColumnCount; ++col) {
+            const auto sourceIndex = sourceModel->index(row, col);
+            Q_ASSERT(sourceIndex.isValid());
+            if (isRootNodeVisible) {
+                const auto proxyIndex = createIndex(row, col, m_maxId++);
+                m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
+                auto it = m_proxyIndexHash.emplace(proxyIndex, std::make_unique<ProxyIndexInfo>(sourceIndex)).first;
+                hiddenRootIndex->m_children.push_back(proxyIndex);
+                stack.push(SourceProxyInfo{ sourceIndex, proxyIndex, it->second.get() });
+            }
+            else {
+                stack.push(SourceProxyInfo{ sourceIndex, QModelIndex(), hiddenRootIndex });
+            }
         }
     }
 
     while (!stack.isEmpty()) {
-        auto& parent = *stack.pop();
-        const auto rowCount = baseModel->rowCount(parent.m_source);
-        const auto columnCount = baseModel->columnCount(parent.m_source);
+        const auto [ sourceParent, proxyParent, parentInfo ] = stack.pop();
+        const auto childCount = sourceModel->rowCount(sourceParent);
+        const auto columnCount = sourceModel->columnCount(sourceParent);
+        int filterRow = 0;
+        for (auto childSourceRow = 0; childSourceRow < childCount; ++childSourceRow) {
+            const auto isChildVisible = filterAcceptsRow(childSourceRow, sourceParent);
+            for (auto childSourceCol = 0; childSourceCol < columnCount; ++childSourceCol) {
+                const auto childSourceIndex = sourceModel->index(childSourceRow, childSourceCol, sourceParent);
+                Q_ASSERT(childSourceIndex.isValid());
 
-        for (auto row = 0; row < rowCount; ++row) {
-            for (auto col = 0; col < columnCount; ++col) {
-                const auto currentIndex = createIndex(row, col, m_idCount++);
-                const auto sourceIndex = baseModel->index(row, col, parent.m_source);
-                m_indexes.push_back(std::make_unique<ProxyIndex>(sourceIndex, currentIndex, parent.m_index));
-                parent.m_children.push_back(currentIndex);
-                stack.push(m_indexes.back().get());
+                if (isChildVisible) {
+                    const auto childProxyIndex = createIndex(filterRow++, childSourceCol, m_maxId++);
+                    m_sourceIndexHash.emplace(childSourceIndex, childProxyIndex);
+                    auto it = m_proxyIndexHash.emplace(childProxyIndex, std::make_unique<ProxyIndexInfo>(childSourceIndex, proxyParent)).first;
+                    parentInfo->m_children.push_back(childProxyIndex);
+                    stack.push({ childSourceIndex, childProxyIndex, it->second.get() });
+                }
+                else {
+                    stack.push({ childSourceIndex, proxyParent, parentInfo });
+                }
             }
         }
     }
