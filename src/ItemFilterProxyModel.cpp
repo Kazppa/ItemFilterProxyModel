@@ -111,7 +111,7 @@ QModelIndex ItemFilterProxyModel::mapToSource(const QModelIndex &proxyIndex) con
         Q_ASSERT(false);
         return {};
     }
-    
+ 
     return it->second->m_source;
 }
 
@@ -246,7 +246,8 @@ void ItemFilterProxyModel::refreshProxyIndexes()
     QStack<SourceProxyInfo> stack;
 
     // Parent of all root nodes
-    auto hiddenRootIndex = m_proxyIndexHash.emplace(QModelIndex(), new ProxyIndexInfo(QModelIndex())).first->second.get();
+    auto hiddenRootIndex = new ProxyIndexInfo(QModelIndex()); 
+    m_proxyIndexHash.emplace(QModelIndex(), hiddenRootIndex);
     const auto rootRowCount = sourceModel->rowCount();
     const auto rootColumnCount = sourceModel->columnCount();
     for (int row = 0; row < rootRowCount; ++row) {
@@ -257,9 +258,10 @@ void ItemFilterProxyModel::refreshProxyIndexes()
             if (isRootNodeVisible) {
                 const auto proxyIndex = createIndex(row, col, m_maxId++);
                 m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
-                auto it = m_proxyIndexHash.emplace(proxyIndex, std::make_unique<ProxyIndexInfo>(sourceIndex)).first;
                 hiddenRootIndex->m_children.push_back(proxyIndex);
-                stack.push(SourceProxyInfo{ sourceIndex, proxyIndex, it->second.get() });
+                auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex);
+                m_proxyIndexHash.emplace(proxyIndex, proxyIndexInfo);
+                stack.push(SourceProxyInfo{ sourceIndex, proxyIndex, proxyIndexInfo });
             }
             else {
                 stack.push(SourceProxyInfo{ sourceIndex, QModelIndex(), hiddenRootIndex });
@@ -269,24 +271,26 @@ void ItemFilterProxyModel::refreshProxyIndexes()
 
     while (!stack.isEmpty()) {
         const auto [ sourceParent, proxyParent, parentInfo ] = stack.pop();
-        const auto childCount = sourceModel->rowCount(sourceParent);
+        const auto rowCount = sourceModel->rowCount(sourceParent);
         const auto columnCount = sourceModel->columnCount(sourceParent);
         int filterRow = 0;
-        for (auto childSourceRow = 0; childSourceRow < childCount; ++childSourceRow) {
-            const auto isChildVisible = filterAcceptsRow(childSourceRow, sourceParent);
-            for (auto childSourceCol = 0; childSourceCol < columnCount; ++childSourceCol) {
-                const auto childSourceIndex = sourceModel->index(childSourceRow, childSourceCol, sourceParent);
-                Q_ASSERT(childSourceIndex.isValid());
+        for (auto row = 0; row < rowCount; ++row) {
+            const auto isChildVisible = filterAcceptsRow(row, sourceParent);
+            for (auto col = 0; col < columnCount; ++col) {
+                const auto sourceIndex = sourceModel->index(row, col, sourceParent);
+                Q_ASSERT(sourceIndex.isValid());
 
                 if (isChildVisible) {
-                    const auto childProxyIndex = createIndex(filterRow++, childSourceCol, m_maxId++);
-                    m_sourceIndexHash.emplace(childSourceIndex, childProxyIndex);
-                    auto it = m_proxyIndexHash.emplace(childProxyIndex, std::make_unique<ProxyIndexInfo>(childSourceIndex, proxyParent)).first;
-                    parentInfo->m_children.push_back(childProxyIndex);
-                    stack.push({ childSourceIndex, childProxyIndex, it->second.get() });
+                    const auto proxyIndex = createIndex(filterRow++, col, m_maxId++);
+                    m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
+                    parentInfo->m_children.push_back(proxyIndex);
+
+                    auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex, proxyParent);
+                    m_proxyIndexHash.emplace(proxyIndex, proxyIndexInfo);
+                    stack.push({ sourceIndex, proxyIndex, proxyIndexInfo });
                 }
                 else {
-                    stack.push({ childSourceIndex, proxyParent, parentInfo });
+                    stack.push({ sourceIndex, proxyParent, parentInfo });
                 }
             }
         }

@@ -16,7 +16,7 @@ bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIn
 {
     const auto sourceIndex = sourceModel()->index(sourceRow, 0, sourceParent);
     const auto text = sourceModel()->data(sourceIndex, Qt::DisplayRole).toString();
-    if (text == QStringLiteral("A")) {
+    if (text.size() == 2 && text[1] == u'1') {
         return false;
     }
     return true;

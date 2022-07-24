@@ -12,7 +12,7 @@ namespace std
     template<>
     struct hash<QModelIndex>
     {
-        std::size_t operator()(const QModelIndex &idx) const
+        std::size_t operator()(const QModelIndex& idx) const noexcept
         {
             return qHash(idx);
         }
