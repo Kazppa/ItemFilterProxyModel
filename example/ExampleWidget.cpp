@@ -30,13 +30,13 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     // auto tester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 #endif
 
-    _basicTreeView = new ExampleTreeView();
-    _basicTreeView->setModel(_sourceModel);
-    _basicTreeView->expandAll();
+    _sourceTreeView = new ExampleTreeView();
+    _sourceTreeView->setModel(_sourceModel);
+    _sourceTreeView->expandAll();
 
-    _restructuredTreeView = new ExampleTreeView();
-    _restructuredTreeView->setModel(_proxyModel);
-    _restructuredTreeView->expandAll();
+    _proxyTreeView = new ExampleTreeView();
+    _proxyTreeView->setModel(_proxyModel);
+    _proxyTreeView->expandAll();
 
     _syncViewsCheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
 
@@ -45,8 +45,8 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     titleLayout->addWidget(new QLabel(QStringLiteral("Filtered model")), 0, Qt::AlignHCenter);
 
     auto splitter = new QSplitter;
-    splitter->addWidget(_basicTreeView);
-    splitter->addWidget(_restructuredTreeView);
+    splitter->addWidget(_sourceTreeView);
+    splitter->addWidget(_proxyTreeView);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(titleLayout);
@@ -57,28 +57,31 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 
     connect(_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
     _syncViewsCheckBox->setChecked(true);
-    _basicTreeView->resizeColumnsToContents();
-    _restructuredTreeView->resizeColumnsToContents();
+
+    QTimer::singleShot(1, [this] {
+    _proxyTreeView->resizeColumnsToContents();
+    _sourceTreeView->resizeColumnsToContents();
+    });
 }
 
 void ExampleWidget::onSyncViewsCheckBox(bool isChecked)
 {
     if (isChecked)
     {
-        connect(_basicTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
-        connect(_restructuredTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
+        connect(_sourceTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
+        connect(_proxyTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
 
-        connect(_basicTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
-        connect(_basicTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
-        connect(_restructuredTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
-        connect(_restructuredTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
+        connect(_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
+        connect(_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
+        connect(_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
+        connect(_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
     }
     else
     {
-        disconnect(_basicTreeView->verticalScrollBar(), nullptr, this, nullptr);
-        disconnect(_restructuredTreeView->verticalScrollBar(), nullptr, this, nullptr);
-        disconnect(_basicTreeView, nullptr, this, nullptr);
-        disconnect(_restructuredTreeView, nullptr, this, nullptr);
+        disconnect(_sourceTreeView->verticalScrollBar(), nullptr, this, nullptr);
+        disconnect(_proxyTreeView->verticalScrollBar(), nullptr, this, nullptr);
+        disconnect(_sourceTreeView, nullptr, this, nullptr);
+        disconnect(_proxyTreeView, nullptr, this, nullptr);
     }
 }
 
@@ -97,8 +100,8 @@ void ExampleWidget::onSliderReleased()
 
 void ExampleWidget::onViewScrolled(int newValue)
 {
-    const auto basicViewScrollBar = _basicTreeView->verticalScrollBar();
-    const auto restructuredViewScrollBar = _restructuredTreeView->verticalScrollBar();
+    const auto basicViewScrollBar = _sourceTreeView->verticalScrollBar();
+    const auto restructuredViewScrollBar = _proxyTreeView->verticalScrollBar();
     const auto fromScrollBar = sender() == basicViewScrollBar ? basicViewScrollBar : restructuredViewScrollBar;
     const auto toScrollBar = fromScrollBar == basicViewScrollBar ? restructuredViewScrollBar : basicViewScrollBar;
 
@@ -115,12 +118,12 @@ void ExampleWidget::onViewScrolled(int newValue)
 
 void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
 {
-    const auto fromView = sender() == _basicTreeView ? _basicTreeView : _restructuredTreeView;
-    const auto toView = fromView == _basicTreeView ? _restructuredTreeView : _basicTreeView;
+    const auto fromView = sender() == _sourceTreeView ? _sourceTreeView : _proxyTreeView;
+    const auto toView = fromView == _sourceTreeView ? _proxyTreeView : _sourceTreeView;
 
     QModelIndex toViewIndex;
-    if (_restructuredTreeView->model() == _proxyModel) {
-        if (toView == _restructuredTreeView) {
+    if (_proxyTreeView->model() == _proxyModel) {
+        if (toView == _proxyTreeView) {
             toViewIndex = _proxyModel->mapFromSource(newIndex);
         }
         else {

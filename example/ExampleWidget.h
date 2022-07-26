@@ -29,8 +29,8 @@ private:
 
     ExampleItemModel * _sourceModel;
     ExampleItemFilterProxyModel* _proxyModel;
-    ExampleTreeView *_basicTreeView;
-    ExampleTreeView *_restructuredTreeView;
+    ExampleTreeView *_sourceTreeView;
+    ExampleTreeView *_proxyTreeView;
     QCheckBox *_syncViewsCheckBox;
 };
 

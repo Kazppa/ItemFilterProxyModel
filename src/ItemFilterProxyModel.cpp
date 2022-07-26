@@ -298,7 +298,9 @@ void ItemFilterProxyModel::refreshProxyIndexes()
                 const auto proxyRow = hiddenRootIndex->m_children.size();
                 const auto proxyIndex = createIndex(proxyRow, col, sourceIndex.internalId());
                 m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
-                hiddenRootIndex->m_children.push_back(proxyIndex);
+                if (col == 0) {
+                    hiddenRootIndex->m_children.push_back(proxyIndex);
+                }
                 auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex, proxyIndex);
                 m_proxyIndexHash.emplace(proxyIndex, proxyIndexInfo);
 
