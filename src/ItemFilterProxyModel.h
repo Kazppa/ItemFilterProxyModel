@@ -12,15 +12,12 @@ class ItemFilterProxyModel : public QAbstractProxyModel
     Q_OBJECT
 
 public:
-    class ProxyIndexInfo
+    struct ProxyIndexHash
     {
-    public:
-        explicit ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyParentIndex = QModelIndex()) :
-            m_source(sourceIndex), m_parent(proxyParentIndex) {}
-    
-        QModelIndex m_source;
-        QModelIndex m_parent;
-        QModelIndexList m_children{};
+        std::size_t operator()(const QModelIndex &idx) const noexcept
+        {
+            return qHash(idx);
+        }
     };
 
     explicit ItemFilterProxyModel(QObject *parent);
@@ -53,13 +50,27 @@ private:
 
     void refreshProxyIndexes();
 
-    struct ProxyIndexHash
+    class ProxyIndexInfo
     {
-        std::size_t operator()(const QModelIndex &idx) const noexcept
-        {
-            return qHash(idx);
-        }
+    public:
+        explicit ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyParentIndex = QModelIndex()) :
+            m_source(sourceIndex), m_parent(proxyParentIndex) {}
+    
+        QModelIndex m_source;
+        QModelIndex m_parent;
+        QModelIndexList m_children{};
+
     };
+
+    struct SourceProxyInfo
+    {
+        QModelIndex _sourceParent;
+        QModelIndex _proxyParent;
+        ProxyIndexInfo * _parentInfo = nullptr;
+    };
+
+    void fillChildrenIndexes(const QModelIndex &sourceParent, const QModelIndex &proxyParent, ProxyIndexInfo* parentInfo);
+
 
     // SourceIndex -> ProxyIndex
     mutable QHash<QModelIndex, QModelIndex> m_sourceIndexHash;

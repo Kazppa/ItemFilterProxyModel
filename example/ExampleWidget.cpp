@@ -49,7 +49,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     setMinimumSize(600, 500);
 
     connect(_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
-    // _syncViewsheckBox->setChecked(true);
+    _syncViewsCheckBox->setChecked(true);
 }
 
 void ExampleWidget::onSyncViewsCheckBox(bool isChecked)
