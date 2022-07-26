@@ -1,3 +1,14 @@
-add_executable(ItemFilterProxyModelExample main.cpp ExampleWidget.cpp ExampleWidget.h ExampleItemModel.h ExampleItemModel.cpp)
+add_executable(ItemFilterProxyModelExample
+        main.cpp
+        ExampleWidget.h
+        ExampleWidget.cpp
+        ExampleItemModel.h
+        ExampleItemModel.cpp
+        ExampleItemFilterProxyModel.h
+        ExampleItemFilterProxyModel.cpp
+        ExampleTreeView.h
+        ExampleTreeView.cpp)
 
-target_link_libraries(ItemFilterProxyModelExample ItemFilterProxyModel)
+find_package(Qt6 COMPONENTS Test REQUIRED)
+
+target_link_libraries(ItemFilterProxyModelExample PRIVATE Qt6::Test ItemFilterProxyModel)

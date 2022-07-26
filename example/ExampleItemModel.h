@@ -9,6 +9,8 @@ class ExampleItemModel : public QStandardItemModel
 public:
     ExampleItemModel(QObject *parent);
 
+    QVariant data(const QModelIndex &idx, int role) const override;
+
 private:
     void generateExampleData();
 };

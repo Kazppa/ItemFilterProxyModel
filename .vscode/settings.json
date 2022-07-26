@@ -83,6 +83,6 @@
         "xtr1common": "cpp"
     },
     "cmake.debugConfig": {
-        "visualizerFile": "${workspaceRoot}/qt6.natvis"
+        "visualizerFile": "${workspaceFolder}/qt6.natvis"
     }
 }

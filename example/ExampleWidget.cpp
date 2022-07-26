@@ -1,74 +1,34 @@
 #include "ExampleWidget.h"
 
+#include <QAbstractItemModelTester>
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QItemSelectionModel>
 #include <QLabel>
-#include <QMenu>
-#include <QRandomGenerator>
+#include <QLoggingCategory>
 #include <QScrollBar>
+#include <QSplitter>
 #include <QTimer>
 
 #include "ExampleItemModel.h"
+#include "ExampleItemFilterProxyModel.h"
+#include "ExampleTreeView.h"
 
-
-bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const 
-{
-    const auto sourceIndex = sourceModel()->index(sourceRow, 0, sourceParent);
-    const auto text = sourceModel()->data(sourceIndex, Qt::DisplayRole).toString();
-    if (text.size() == 2 && text[1] == u'1') {
-        return false;
-    }
-    return true;
-}
-
-////////////////////////
-
-ExampleTreeView::ExampleTreeView(QWidget *parent) :
-    QTreeView(parent)
-{
-    setHeaderHidden(true);
-    verticalScrollBar()->setTracking(true);
-
-    setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
-    auto contextMenu = new QMenu(this);
-    auto expandAction = contextMenu->addAction(tr("Expand"));
-    auto collapseAction = contextMenu->addAction(tr("Collapse"));
-    contextMenu->addSeparator();
-    auto expandAllAction = contextMenu->addAction(tr("Expand all"));
-    auto collapseAllAction = contextMenu->addAction(tr("Collapse all"));
-
-    connect(expandAllAction, &QAction::triggered, this, &QTreeView::expandAll);
-    connect(collapseAllAction, &QAction::triggered, this, &QTreeView::collapseAll);
-    connect(expandAction, &QAction::triggered, this, [this]() {
-        expandRecursively(currentIndex());
-    });
-        connect(collapseAction, &QAction::triggered, this, [this]() {
-        collapse(currentIndex());
-    });
-    connect(this, &QTreeView::customContextMenuRequested, this, [=](const QPoint& pos) {
-        const auto index = currentIndex();
-        const auto isValid = index.isValid();
-        const auto indexExpanded = isValid ? isExpanded(index) : false;
-        expandAction->setVisible(isValid && !indexExpanded);
-        collapseAction->setVisible(isValid && indexExpanded);
-        contextMenu->popup(mapToGlobal(pos));
-    });
-}
-
-void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelIndex &prevIdx)
-{
-    QTreeView::currentChanged(newIdx, prevIdx);
-    Q_EMIT currentIndexChanged(newIdx);
-}
-
-////////////////////////
 
 ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 {
     _sourceModel = new ExampleItemModel(this);
     _proxyModel = new ExampleItemFilterProxyModel(this);
     _proxyModel->setSourceModel(_sourceModel);
+#ifdef QT_DEBUG
+    QLoggingCategory cat("qt.modeltest");
+    cat.setEnabled(QtMsgType::QtDebugMsg, true);
+    cat.setEnabled(QtMsgType::QtWarningMsg, true);
+    cat.setEnabled(QtMsgType::QtCriticalMsg, true);
+    cat.setEnabled(QtMsgType::QtFatalMsg, true);
+    cat.setEnabled(QtMsgType::QtInfoMsg, true);
+    // auto tester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+#endif
 
     _basicTreeView = new ExampleTreeView();
     _basicTreeView->setModel(_sourceModel);
@@ -78,25 +38,27 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     _restructuredTreeView->setModel(_proxyModel);
     _restructuredTreeView->expandAll();
 
-    _syncViewsheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
+    _syncViewsCheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
 
     auto titleLayout = new QHBoxLayout;
     titleLayout->addWidget(new QLabel(QStringLiteral("Source model")), 0, Qt::AlignHCenter);
-    titleLayout->addWidget(new QLabel(QStringLiteral("Restructured model")), 0, Qt::AlignHCenter);
+    titleLayout->addWidget(new QLabel(QStringLiteral("Filtered model")), 0, Qt::AlignHCenter);
 
-    auto viewLayout = new QHBoxLayout;
-    viewLayout->addWidget(_basicTreeView);
-    viewLayout->addWidget(_restructuredTreeView);
+    auto splitter = new QSplitter;
+    splitter->addWidget(_basicTreeView);
+    splitter->addWidget(_restructuredTreeView);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(titleLayout);
-    mainLayout->addLayout(viewLayout);
-    mainLayout->addWidget(_syncViewsheckBox);
+    mainLayout->addWidget(splitter, 100);
+    mainLayout->addWidget(_syncViewsCheckBox);
 
-    setMinimumSize(600, 500);
+    setMinimumSize(800, 600);
 
-    connect(_syncViewsheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
-    _syncViewsheckBox->setChecked(true);
+    connect(_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
+    _syncViewsCheckBox->setChecked(true);
+    _basicTreeView->resizeColumnsToContents();
+    _restructuredTreeView->resizeColumnsToContents();
 }
 
 void ExampleWidget::onSyncViewsCheckBox(bool isChecked)
