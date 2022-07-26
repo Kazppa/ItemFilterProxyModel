@@ -38,8 +38,6 @@ public:
 
     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
     
-    virtual bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
-
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const = 0;
 
     // Return the mapped range for this proxyModel, in worst case the second value est equal to the first (both being invalid)
@@ -48,34 +46,41 @@ public:
 private:
     void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
 
+    // Return the proxy index matching the sourceIndex : if the latter is not visible, search recursively a visible parent
+    QModelIndex getProxyNearestParentIndex(const QModelIndex &sourceIndex) const;
+
+    void onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
+    void onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
+
+    void onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
+    void onRowsRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
+
+    void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
+    void onRowsMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
+
     void refreshProxyIndexes();
 
     class ProxyIndexInfo
     {
     public:
-        explicit ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyParentIndex = QModelIndex()) :
-            m_source(sourceIndex), m_parent(proxyParentIndex) {}
+        ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex, const QModelIndex &proxyParentIndex = {});
     
+        // Return the closest inferior or equal child for the given source row
+        QModelIndexList::const_iterator lowerBoundSourceRow(int sourceRow) const;
+
         QModelIndex m_source;
+        QModelIndex m_index;
         QModelIndex m_parent;
         QModelIndexList m_children{};
-
     };
 
-    struct SourceProxyInfo
-    {
-        QModelIndex _sourceParent;
-        QModelIndex _proxyParent;
-        ProxyIndexInfo * _parentInfo = nullptr;
-    };
-
+    // Recursively insert indexes based on sourceModel()'s indexes
     void fillChildrenIndexes(const QModelIndex &sourceParent, const QModelIndex &proxyParent, ProxyIndexInfo* parentInfo);
-
 
     // SourceIndex -> ProxyIndex
     mutable QHash<QModelIndex, QModelIndex> m_sourceIndexHash;
     // ProxyIndex -> infos
-    mutable std::unordered_map<QModelIndex, std::unique_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
+    mutable std::unordered_map<QModelIndex, std::shared_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
 };
 
 #endif // __STRUCTUREPROXYMODEL_H__

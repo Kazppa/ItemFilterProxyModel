@@ -1,20 +1,18 @@
 #include "ExampleWidget.h"
 
+#include <QAbstractItemModelTester>
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QItemSelectionModel>
 #include <QLabel>
-#include <QRandomGenerator>
+#include <QLoggingCategory>
 #include <QScrollBar>
+#include <QSplitter>
 #include <QTimer>
 
 #include "ExampleItemModel.h"
 #include "ExampleItemFilterProxyModel.h"
 #include "ExampleTreeView.h"
-
-////////////////////////
-
-////////////////////////
 
 
 ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
@@ -22,6 +20,15 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     _sourceModel = new ExampleItemModel(this);
     _proxyModel = new ExampleItemFilterProxyModel(this);
     _proxyModel->setSourceModel(_sourceModel);
+#ifdef QT_DEBUG
+    QLoggingCategory cat("qt.modeltest");
+    cat.setEnabled(QtMsgType::QtDebugMsg, true);
+    cat.setEnabled(QtMsgType::QtWarningMsg, true);
+    cat.setEnabled(QtMsgType::QtCriticalMsg, true);
+    cat.setEnabled(QtMsgType::QtFatalMsg, true);
+    cat.setEnabled(QtMsgType::QtInfoMsg, true);
+    // auto tester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+#endif
 
     _basicTreeView = new ExampleTreeView();
     _basicTreeView->setModel(_sourceModel);
@@ -37,19 +44,21 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     titleLayout->addWidget(new QLabel(QStringLiteral("Source model")), 0, Qt::AlignHCenter);
     titleLayout->addWidget(new QLabel(QStringLiteral("Filtered model")), 0, Qt::AlignHCenter);
 
-    auto viewLayout = new QHBoxLayout;
-    viewLayout->addWidget(_basicTreeView);
-    viewLayout->addWidget(_restructuredTreeView);
+    auto splitter = new QSplitter;
+    splitter->addWidget(_basicTreeView);
+    splitter->addWidget(_restructuredTreeView);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(titleLayout);
-    mainLayout->addLayout(viewLayout);
+    mainLayout->addWidget(splitter, 100);
     mainLayout->addWidget(_syncViewsCheckBox);
 
-    setMinimumSize(600, 500);
+    setMinimumSize(800, 600);
 
     connect(_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
     _syncViewsCheckBox->setChecked(true);
+    _basicTreeView->resizeColumnsToContents();
+    _restructuredTreeView->resizeColumnsToContents();
 }
 
 void ExampleWidget::onSyncViewsCheckBox(bool isChecked)

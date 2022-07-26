@@ -9,4 +9,6 @@ add_executable(ItemFilterProxyModelExample
         ExampleTreeView.h
         ExampleTreeView.cpp)
 
-target_link_libraries(ItemFilterProxyModelExample PUBLIC ItemFilterProxyModel)
+find_package(Qt6 COMPONENTS Test REQUIRED)
+
+target_link_libraries(ItemFilterProxyModelExample PRIVATE Qt6::Test ItemFilterProxyModel)

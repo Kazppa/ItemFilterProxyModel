@@ -8,7 +8,16 @@
 ExampleItemModel::ExampleItemModel(QObject *parent) :
     QStandardItemModel(parent)
 {
+    setColumnCount(2);
     generateExampleData();
+}
+
+QVariant ExampleItemModel::data(const QModelIndex &idx, int role) const 
+{
+    if (role == Qt::TextAlignmentRole && idx.column() == 1) {
+        return Qt::AlignCenter;
+    }
+    return QStandardItemModel::data(idx, role);
 }
 
 
@@ -19,13 +28,15 @@ void ExampleItemModel::generateExampleData()
 #else
     auto rand = QRandomGenerator::global();
 #endif
+    const auto columnCount = QStandardItemModel::columnCount();
     const auto rootNodeCount = rand.bounded(4, 10);
     std::queue<std::pair<QStandardItem *, int>> queue;
     QChar c = u'A';
-    for (int i = 0; i < rootNodeCount; ++i) {
+    for (int row = 0; row < rootNodeCount; ++row) {
         auto node = new QStandardItem(c);
         c.unicode() += 1;
-        appendRow(node);
+        auto colItem = new QStandardItem(QStringLiteral("%1 col 1").arg(c));
+        appendRow({ node, colItem });
 
         const auto subLevelCount = rand.bounded(0, 6);
         if (subLevelCount != 0) {
@@ -43,10 +54,12 @@ void ExampleItemModel::generateExampleData()
         auto& number = numbers[parentLetter];
 
         const auto childCount = rand.bounded(1, 4);
-        for (int i = 0; i < childCount; ++i) {
+        for (int row = 0; row < childCount; ++row) {
             const auto childName = parentLetter + QString::number(++number);
             auto childItem = new QStandardItem(childName);
-            parentNode->appendRow(childItem);
+            auto colItem = new QStandardItem(QStringLiteral("%1 col 1").arg(childName));
+            parentNode->appendRow({ childItem, colItem });
+
             if (--subLevelCount > 0) {
                 queue.push(std::make_pair(childItem, subLevelCount));
             }

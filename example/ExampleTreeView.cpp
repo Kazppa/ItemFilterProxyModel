@@ -35,6 +35,14 @@ ExampleTreeView::ExampleTreeView(QWidget *parent) :
     });
 }
 
+void ExampleTreeView::resizeColumnsToContents()
+{
+    const auto columnCount = model()->columnCount();
+    for (int col = 0; col < columnCount; ++col) {
+        resizeColumnToContents(col);
+    }
+}
+
 void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelIndex &prevIdx)
 {
     QTreeView::currentChanged(newIdx, prevIdx);

@@ -11,6 +11,8 @@ public:
 
     Q_SIGNAL void currentIndexChanged(const QModelIndex &newIndex);
 
+    void resizeColumnsToContents();
+
 protected:
     void currentChanged(const QModelIndex &, const QModelIndex&) override;
 

@@ -2,20 +2,22 @@
 
 #include <QtCore/QDateTime>
 
-namespace
+ItemFilterProxyModel::ProxyIndexInfo::ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex, const QModelIndex &proxyParentIndex) :
+    m_source(sourceIndex),
+    m_index(proxyIndex),
+    m_parent(proxyParentIndex)
 {
-    void displayTree(const QAbstractItemModel *model, const QModelIndex &idx, QDebug& debug)
-    {
-        debug.noquote() << model->data(idx).toString() << u"(";
-        const auto rowCount = model->rowCount(idx);
-        for (int row = 0; row < rowCount; ++row) {
-            const auto childIndex = model->index(row, 0, idx);
-            displayTree(model, childIndex, debug);
-        }
-        debug.noquote() << u")";
-    }
+
 }
 
+QModelIndexList::const_iterator ItemFilterProxyModel::ProxyIndexInfo::lowerBoundSourceRow(int sourceRow) const
+{
+    return std::lower_bound(m_children.begin(), m_children.end(), sourceRow, [](const QModelIndex &idx, int sourceRow) {
+        return false; // TODO idx.row() < row;
+    });
+}
+
+//////////////////////////
 
 ItemFilterProxyModel::ItemFilterProxyModel(QObject *parent) :
     QAbstractProxyModel(parent)
@@ -50,18 +52,13 @@ void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)
         refreshProxyIndexes();
         layoutChanged();    // associated beginResetModel() called in the above connect
     });
-    connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeInserted, this, [this](const QModelIndex& sourceParent, int sourceRow, int sourceLast) {
-        // TODO
-        Q_ASSERT(false);
-    });
-    connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeRemoved, this, [this](const QModelIndex& sourceParent, int sourceRow, int sourceLast) {
-        // TODO
-        Q_ASSERT(false);
-    });
-        connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeMoved, this, [this](const QModelIndex& sourceParent, int sourceRow, int sourceLast) {
-        // TODO
-        Q_ASSERT(false);
-    });
+    connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeInserted, this, &ItemFilterProxyModel::onRowsAboutToBeInserted);
+    connect(newSourceModel, &QAbstractItemModel::rowsInserted, this, &ItemFilterProxyModel::onRowsInserted);
+    connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeRemoved, this, &ItemFilterProxyModel::onRowsAboutToBeRemoved);
+    connect(newSourceModel, &QAbstractItemModel::rowsRemoved, this, &ItemFilterProxyModel::rowsRemoved);
+    connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeMoved, this, &ItemFilterProxyModel::rowsAboutToBeMoved);
+    connect(newSourceModel, &QAbstractItemModel::rowsMoved, this, &ItemFilterProxyModel::rowsMoved);
+
     refreshProxyIndexes();
     endResetModel();
 }
@@ -148,51 +145,14 @@ QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) 
     return m_sourceIndexHash.value(sourceIndex);
 }
 
-bool ItemFilterProxyModel::lessThan(const QModelIndex &leftIndex, const QModelIndex &rightIndex) const
-{
-    const auto left = leftIndex.data(Qt::DisplayRole);
-    const auto right = rightIndex.data(Qt::DisplayRole);
-
-    if (left.userType() == QMetaType::UnknownType) {
-        return false;
-    }
-    if (right.userType() == QMetaType::UnknownType) {
-        return true;
-    }
-    switch (left.userType()) {
-    case QMetaType::Int:
-        return left.toInt() < right.toInt();
-    case QMetaType::UInt:
-        return left.toUInt() < right.toUInt();
-    case QMetaType::LongLong:
-        return left.toLongLong() < right.toLongLong();
-    case QMetaType::ULongLong:
-        return left.toULongLong() < right.toULongLong();
-    case QMetaType::Float:
-        return left.toFloat() < right.toFloat();
-    case QMetaType::Double:
-        return left.toDouble() < right.toDouble();
-    case QMetaType::Char:
-        return left.toChar() < right.toChar();
-    case QMetaType::QDate:
-        return left.toDate() < right.toDate();
-    case QMetaType::QTime:
-        return left.toTime() < right.toTime();
-    case QMetaType::QDateTime:
-        return left.toDateTime() < right.toDateTime();
-
-    case QMetaType::QString:
-    default:
-        return left.toString().compare(right.toString()) < 0;
-    }
-}
-
 std::pair<QModelIndex, QModelIndex> ItemFilterProxyModel::mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const
 {
     Q_ASSERT(sourceLeft.isValid() && sourceRight.isValid());
     Q_ASSERT(sourceLeft.parent() == sourceRight.parent());
-    Q_ASSERT(sourceLeft.model() == sourceModel());
-    Q_ASSERT(sourceRight.model() == sourceModel());
+ 
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    Q_ASSERT(sourceLeft.model() == sourceModel);
+    Q_ASSERT(sourceRight.model() == sourceModel);
 
     const auto sourceParent = sourceLeft.parent();
     const auto topRow = sourceLeft.row();
@@ -207,9 +167,8 @@ std::pair<QModelIndex, QModelIndex> ItemFilterProxyModel::mapToSourceRange(const
         return std::make_pair(proxyLeft, proxyRight);
     }
 
-    const auto sourceModel = ItemFilterProxyModel::sourceModel();
-    for (int i = topRow + 1; i < bottomRow; ++i) {
-        const auto sourceIndex = sourceModel->index(i, sourceColumn, sourceParent);
+    for (int row = topRow + 1; row < bottomRow; ++row) {
+        const auto sourceIndex = sourceModel->index(row, sourceColumn, sourceParent);
         const auto proxyIndex = mapFromSource(sourceIndex);
         if (!proxyIndex.isValid()) {
             // Hidden index
@@ -252,6 +211,70 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
     }
 }
 
+QModelIndex ItemFilterProxyModel::getProxyNearestParentIndex(const QModelIndex &sourceIndex) const
+{
+    Q_ASSERT(sourceIndex.isValid());
+    Q_ASSERT(sourceIndex.model() == this);
+
+    QModelIndex matchingProxyParentIndex;
+    auto sourceParentIndex = sourceIndex.parent();
+    do {
+        matchingProxyParentIndex = mapFromSource(sourceParentIndex);
+    }
+    while (!matchingProxyParentIndex.isValid() && (sourceParentIndex = sourceParentIndex.parent()).isValid());
+    return matchingProxyParentIndex;
+}
+
+void ItemFilterProxyModel::onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+    auto model = sourceModel();
+    const auto column = sourceParent.column() >= 0 ? sourceParent.column() : 0;
+    const auto sourceFirstIndex = model->index(sourceFirst, column, sourceParent);
+    const auto sourceLastIndex = model->index(sourceLast, column, sourceParent);
+    auto proxyFirstIndex = mapFromSource(sourceFirstIndex);
+    if (!proxyFirstIndex.isValid()) {
+        const auto proxyParent = getProxyNearestParentIndex(sourceFirstIndex);
+        if (!proxyParent.isValid()) {
+            return;
+        }
+        // TODO
+    }
+    auto proxyLastIndex = mapFromSource(sourceLastIndex);
+    if (!proxyLastIndex.isValid()) {
+        // TODO
+    }
+    beginInsertRows(proxyFirstIndex.parent(), proxyFirstIndex.row(), proxyLastIndex.row());
+}
+
+void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+    // TODO
+    Q_ASSERT(false);
+}
+
+void ItemFilterProxyModel::onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+    // TODO
+    Q_ASSERT(false);
+}
+
+void ItemFilterProxyModel::onRowsRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+    // TODO
+    Q_ASSERT(false);
+}
+
+void ItemFilterProxyModel::onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent)
+{
+    // TODO
+    Q_ASSERT(false);
+}
+
+void ItemFilterProxyModel::onRowsMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent)
+{
+    // TODO
+    Q_ASSERT(false);
+}
 
 void ItemFilterProxyModel::refreshProxyIndexes()
 {
@@ -261,7 +284,7 @@ void ItemFilterProxyModel::refreshProxyIndexes()
     m_proxyIndexHash.clear();
 
     // Parent of all root nodes
-    auto hiddenRootIndex = new ProxyIndexInfo(QModelIndex());
+    auto hiddenRootIndex = new ProxyIndexInfo(QModelIndex(), QModelIndex());
     m_proxyIndexHash.emplace(QModelIndex(), hiddenRootIndex);
     const auto rootRowCount = sourceModel->rowCount();
     const auto rootColumnCount = sourceModel->columnCount();
@@ -276,7 +299,7 @@ void ItemFilterProxyModel::refreshProxyIndexes()
                 const auto proxyIndex = createIndex(proxyRow, col, sourceIndex.internalId());
                 m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
                 hiddenRootIndex->m_children.push_back(proxyIndex);
-                auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex);
+                auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex, proxyIndex);
                 m_proxyIndexHash.emplace(proxyIndex, proxyIndexInfo);
 
                 fillChildrenIndexes(sourceIndex, proxyIndex, proxyIndexInfo);
@@ -306,7 +329,7 @@ void ItemFilterProxyModel::fillChildrenIndexes(const QModelIndex &sourceParent, 
                 m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
                 parentInfo->m_children.push_back(proxyIndex);
 
-                auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex, proxyParent);
+                auto proxyIndexInfo = new ProxyIndexInfo(sourceIndex, proxyIndex, proxyParent);
                 m_proxyIndexHash.emplace(proxyIndex, proxyIndexInfo);
                 fillChildrenIndexes(sourceIndex, proxyIndex, proxyIndexInfo);
             }
