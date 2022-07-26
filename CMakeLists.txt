@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(StructureProxyModel)
+project(ItemFilterProxyModel)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,11 +14,13 @@ SET(CMAKE_COLOR_MAKEFILE ON)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt6 COMPONENTS Gui Widgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets REQUIRED)
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_library(${PROJECT_NAME}
+    src/ItemFilterProxyModel.h
+    src/ItemFilterProxyModel.cpp)
 
-target_link_libraries(${PROJECT_NAME} Qt6::Gui Qt6::Widgets)
+target_include_directories(${PROJECT_NAME} PUBLIC src)
+target_link_libraries(${PROJECT_NAME} PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets)
 
-# enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(example)
