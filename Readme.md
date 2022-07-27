@@ -89,4 +89,4 @@ If this project happens to be useful in one of your project and you do make some
 
 ## License
 The whole repository is licensed under `Apache-2.0`.  
-It means you can use it for more or less whatever you want, read [License.md](License.md) for the full license.
+It means you can use it for more or less whatever you want, read [LICENSE.md](LICENSE.md) for the full license.
