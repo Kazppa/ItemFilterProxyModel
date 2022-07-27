@@ -8,7 +8,7 @@
 ExampleItemModel::ExampleItemModel(QObject *parent) :
     QStandardItemModel(parent)
 {
-    setColumnCount(2);
+    setHorizontalHeaderLabels({ tr("Item name"), tr("Item value") });
     generateExampleData();
 }
 
@@ -34,10 +34,10 @@ void ExampleItemModel::generateExampleData()
     QChar c = u'A';
     for (int row = 0; row < rootNodeCount; ++row) {
         auto node = new QStandardItem(c);
-        c.unicode() += 1;
         auto colItem = new QStandardItem(QStringLiteral("%1 col 1").arg(c));
         appendRow({ node, colItem });
 
+        c.unicode() += 1;
         const auto subLevelCount = rand.bounded(0, 6);
         if (subLevelCount != 0) {
             queue.push(std::make_pair(node, subLevelCount));

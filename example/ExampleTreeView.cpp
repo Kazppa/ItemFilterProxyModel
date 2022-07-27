@@ -6,10 +6,10 @@
 ExampleTreeView::ExampleTreeView(QWidget *parent) :
         QTreeView(parent)
 {
-    setHeaderHidden(true);
     verticalScrollBar()->setTracking(true);
 
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
+    setAllColumnsShowFocus(true);
     auto contextMenu = new QMenu(this);
     auto expandAction = contextMenu->addAction(tr("Expand"));
     auto collapseAction = contextMenu->addAction(tr("Collapse"));
