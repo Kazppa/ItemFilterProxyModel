@@ -4,6 +4,15 @@
 
 #include <QRandomGenerator>
 
+namespace
+{
+    QStandardItem * createItem(const QString &text)
+    {
+        auto item = new QStandardItem(text);
+        // item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
+        return item;
+    }
+}
 
 ExampleItemModel::ExampleItemModel(QObject *parent) :
     QStandardItemModel(parent)
@@ -33,8 +42,8 @@ void ExampleItemModel::generateExampleData()
     std::queue<std::pair<QStandardItem *, int>> queue;
     QChar c = u'A';
     for (int row = 0; row < rootNodeCount; ++row) {
-        auto node = new QStandardItem(c);
-        auto colItem = new QStandardItem(QStringLiteral("%1 col 1").arg(c));
+        auto node = createItem(c);
+        auto colItem = createItem(QStringLiteral("%1 col 1").arg(c));
         appendRow({ node, colItem });
 
         c.unicode() += 1;
@@ -56,8 +65,8 @@ void ExampleItemModel::generateExampleData()
         const auto childCount = rand.bounded(1, 4);
         for (int row = 0; row < childCount; ++row) {
             const auto childName = parentLetter + QString::number(++number);
-            auto childItem = new QStandardItem(childName);
-            auto colItem = new QStandardItem(QStringLiteral("%1 col 1").arg(childName));
+            auto childItem = createItem(childName);
+            auto colItem = createItem(QStringLiteral("%1 col 1").arg(childName));
             parentNode->appendRow({ childItem, colItem });
 
             if (--subLevelCount > 0) {

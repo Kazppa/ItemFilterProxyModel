@@ -63,7 +63,7 @@ void QAbstractProxyModel::setSourceModel(QAbstractItemModel *newSourceModel);
 A trivial example :
 ```cpp
 auto itemModel = new QStandardItemModel(parent);
-auto proxyModel = new ItemFilterProxyModel(parent);
+auto proxyModel = new MyItemFilterProxyModel(parent);   // inherits kaz::ItemFilterProxyModel
 proxyModel->setSourceModel(itemModel);
 
 auto treeView = new QTreeView(parent);
@@ -85,7 +85,7 @@ QtWidgets
 This class was made with (and for) Qt6 but might works with Qt5 (i didn't test it though).  
 
 ## Contributing
-If this project happens to be useful in one of your project and you do make some changes / improvements, feel free to create a pull request to help the next guy coming by this repo.
+If this proxy model happens to be useful in one of your project and you do make some changes / improvements, feel free to create a pull request to help the next guys coming by this repo.
 
 ## License
 The whole repository is licensed under `Apache-2.0`.  

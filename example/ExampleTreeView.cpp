@@ -7,40 +7,48 @@ ExampleTreeView::ExampleTreeView(QWidget *parent) :
         QTreeView(parent)
 {
     verticalScrollBar()->setTracking(true);
-
+    setSelectionMode(SelectionMode::ExtendedSelection);
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
-    setAllColumnsShowFocus(true);
-    auto contextMenu = new QMenu(this);
-    auto expandAction = contextMenu->addAction(tr("Expand"));
-    auto collapseAction = contextMenu->addAction(tr("Collapse"));
-    contextMenu->addSeparator();
-    auto expandAllAction = contextMenu->addAction(tr("Expand all"));
-    auto collapseAllAction = contextMenu->addAction(tr("Collapse all"));
+    setDragDropMode(DragDropMode::InternalMove);
 
-    connect(expandAllAction, &QAction::triggered, this, &QTreeView::expandAll);
-    connect(collapseAllAction, &QAction::triggered, this, &QTreeView::collapseAll);
-    connect(expandAction, &QAction::triggered, this, [this]() {
-        expandRecursively(currentIndex());
-    });
-    connect(collapseAction, &QAction::triggered, this, [this]() {
-        collapse(currentIndex());
-    });
-    connect(this, &QTreeView::customContextMenuRequested, this, [=](const QPoint& pos) {
-        const auto index = currentIndex();
-        const auto isValid = index.isValid();
-        const auto indexExpanded = isValid && isExpanded(index);
-        expandAction->setVisible(isValid && !indexExpanded);
-        collapseAction->setVisible(isValid && indexExpanded);
-        contextMenu->popup(mapToGlobal(pos));
-    });
+    m_menu = new QMenu(this);
+    m_expandAction = m_menu->addAction(tr("Expand"));
+    m_collapseAction = m_menu->addAction(tr("Collapse"));
+    m_menu->addSeparator();
+    m_expandAllAction = m_menu->addAction(tr("Expand all"));
+    m_collapseAllAction = m_menu->addAction(tr("Collapse all"));
+    m_removeAction = m_menu->addAction(tr("Delete item"));
+
+    connect(m_expandAllAction, &QAction::triggered, this, &QTreeView::expandAll);
+    connect(m_collapseAllAction, &QAction::triggered, this, &QTreeView::collapseAll);
+    connect(m_expandAction, &QAction::triggered, this, [this]() { expandRecursively(currentIndex()); });
+    connect(m_collapseAction, &QAction::triggered, this, [this]() { collapse(currentIndex()); });
+    connect(m_removeAction, &QAction::triggered, this, &ExampleTreeView::onRemoveAction);
+    connect(this, &QTreeView::customContextMenuRequested, this, &ExampleTreeView::onContextMenuRequested);
 }
 
 void ExampleTreeView::resizeColumnsToContents()
 {
-    const auto columnCount = model()->columnCount();
+    auto model = QTreeView::model();
+    if (!model) {
+        return;
+    }
+    const auto columnCount = model->columnCount();
     for (int col = 0; col < columnCount; ++col) {
         resizeColumnToContents(col);
     }
+}
+
+void ExampleTreeView::onContextMenuRequested(const QPoint& pos)
+{
+    const auto index = currentIndex();
+    const auto isValid = index.isValid();
+    auto indexExpanded = isValid && isExpanded(index);
+    m_expandAction->setVisible(isValid && !indexExpanded);
+    m_collapseAction->setVisible(isValid && indexExpanded);
+    m_removeAction->setVisible(!selectedIndexes().empty());
+
+    m_menu->popup(mapToGlobal(pos));
 }
 
 void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelIndex &prevIdx)
@@ -48,3 +56,14 @@ void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelInde
     QTreeView::currentChanged(newIdx, prevIdx);
     Q_EMIT currentIndexChanged(newIdx);
 }
+
+
+void ExampleTreeView::onRemoveAction()
+{
+    const auto model = QTreeView::model();
+    const auto indexesToRemove = selectedIndexes();
+    for (const auto& index : indexesToRemove) {
+        model->removeRow(index.row(), index.parent());
+    }
+}
+

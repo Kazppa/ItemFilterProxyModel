@@ -2,10 +2,12 @@
 
 #include <QtCore/QDateTime>
 
+using namespace kaz;    // fine in a cpp file
 using ProxyIndexInfo = ItemFilterProxyModel::ProxyIndexInfo;
 
 namespace
 {
+    // Helper to use multiple lambdas as a comparator
     template<typename ...Callables>
     struct make_visitor : Callables... { using Callables::operator()...; };
 
@@ -175,7 +177,7 @@ bool ItemFilterProxyModel::hasChildren(const QModelIndex &parentIndex) const
 
 QModelIndex ItemFilterProxyModel::mapToSource(const QModelIndex &proxyIndex) const
 {
-    if (!proxyIndex.isValid()) {
+    if (!sourceModel() || !proxyIndex.isValid()) {
         return {};
     }
 
@@ -190,65 +192,101 @@ QModelIndex ItemFilterProxyModel::mapToSource(const QModelIndex &proxyIndex) con
 
 QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) const
 {
-    if (!sourceIndex.isValid()) {
+    if (!sourceModel() || !sourceIndex.isValid()) {
         return {};
     }
+
     Q_ASSERT(sourceIndex.model() == sourceModel());
     return m_sourceIndexHash.value(sourceIndex);
 }
 
-std::pair<QModelIndex, QModelIndex> ItemFilterProxyModel::mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const
+std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModel::mapFromSourceRange(const QModelIndex &sourceLeft,
+    const QModelIndex& sourceRight, const SelectionParameters parameters) const
 {
-    Q_ASSERT(sourceLeft.isValid() && sourceRight.isValid());
-    Q_ASSERT(sourceLeft.parent() == sourceRight.parent());
- 
     const auto sourceModel = ItemFilterProxyModel::sourceModel();
     Q_ASSERT(sourceLeft.model() == sourceModel);
     Q_ASSERT(sourceRight.model() == sourceModel);
-
+    Q_ASSERT(sourceLeft.parent() == sourceRight.parent());
     const auto sourceParent = sourceLeft.parent();
-    const auto topRow = sourceLeft.row();
-    const auto bottomRow = sourceRight.row();
-    const auto sourceColumn = sourceLeft.column();
 
-    auto proxyLeft = mapFromSource(sourceLeft);
-    auto proxyRight = mapFromSource(sourceRight);
-    const auto isBaseProxyRightValid = proxyRight.isValid();
+    const auto sourceLeftRow = sourceLeft.row();
+    const auto sourceRightRow = sourceRight.row();
+    const auto column = sourceLeft.column();
+    
+    QModelIndex proxyIndexEndRange, proxyIndexBeginRange = mapFromSource(sourceLeft);
+    std::vector<std::pair<QModelIndex, QModelIndex>> ranges;
+    const auto appendIndexToRange = [&](const QModelIndex &proxyIndex) {
+        if (!proxyIndexBeginRange.isValid()) {
+            // New range
+            proxyIndexBeginRange = proxyIndex;
+            return;
+        }
 
-    if (proxyLeft.isValid() && isBaseProxyRightValid) {
-        return std::make_pair(proxyLeft, proxyRight);
-    }
+        if (proxyIndex.parent() == proxyIndexBeginRange.parent()) {
+            // Enlarge the current range
+            proxyIndexEndRange = proxyIndex;
+        }
+        else {
+            // End of the range, insert in the results
+            ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange.isValid() ? proxyIndexEndRange : proxyIndexBeginRange);
+            proxyIndexBeginRange = proxyIndex;
+            proxyIndexEndRange = QModelIndex();
+        }
+    };
 
-    for (int row = topRow + 1; row < bottomRow; ++row) {
-        const auto sourceIndex = sourceModel->index(row, sourceColumn, sourceParent);
+    for (int sourceRow = sourceLeftRow + 1; sourceRow < sourceRightRow; ++sourceRow) {
+        const auto sourceIndex = sourceModel->index(sourceRow, column, sourceParent);
         const auto proxyIndex = mapFromSource(sourceIndex);
-        if (!proxyIndex.isValid()) {
-            // Hidden index
-            continue;
+        if (proxyIndex.isValid()) {
+            appendIndexToRange(proxyIndex);
         }
-
-        if (!proxyLeft.isValid()) {
-            if (isBaseProxyRightValid) {
-                // Range already found
-                return std::make_pair(proxyIndex, proxyRight);
+        else if (parameters & IncludeChildrenIfInvisible) {
+            // Source index is invisble, select his "direct" visible children instead (check recursively until finding a visible child index)
+            const auto visibleChildren = getProxyChildrenIndexes(sourceIndex);
+            for (const auto& proxyIndex : visibleChildren) {
+                appendIndexToRange(proxyIndex);
             }
-            proxyLeft = proxyIndex;
-        }
-
-        if (!isBaseProxyRightValid) {
-            proxyRight = proxyIndex;
         }
     }
 
-    if (!proxyLeft.isValid()) {
-        return std::make_pair(proxyRight, proxyRight);
+    if (proxyIndexBeginRange.isValid()) {
+        ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange.isValid() ? proxyIndexEndRange : proxyIndexBeginRange);
     }
-    else if (!proxyRight.isValid()) {
-        return std::make_pair(proxyLeft, proxyLeft);
+    return ranges;
+}
+
+std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModel::mapFromSourceRange(
+        const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const SelectionParameters parameters) const
+{
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    const auto column = sourceParent.column() >= 0 ? sourceParent.column() : 0;
+    const auto sourceLeft = sourceModel->index(sourceFirst, column, sourceParent);
+    const auto sourceRight = sourceModel->index(sourceLast, column, sourceParent);
+    return mapFromSourceRange(sourceLeft, sourceRight, parameters);
+}
+
+QModelIndexList ItemFilterProxyModel::getProxyChildrenIndexes(const QModelIndex &sourceIndex) const
+{
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    const auto childrenCount = sourceModel->rowCount(sourceIndex);
+    const auto column = sourceIndex.column() >= 0 ? sourceIndex.column() : 0;
+
+    QModelIndexList indexes;
+    indexes.reserve(childrenCount);
+    for (int sourceRow = 0; sourceRow < childrenCount; ++sourceRow) {
+        const auto childSourceIndex = sourceModel->index(sourceRow, column, sourceIndex);
+        const auto proxyIndex = mapFromSource(childSourceIndex);
+        if (proxyIndex.isValid()) {
+            // Visible child
+            indexes.push_back(proxyIndex);
+        }
+        else {
+            // Non visible index, search recursively a visible child
+            auto childVisibleIndexes = getProxyChildrenIndexes(childSourceIndex);
+            indexes.append(std::move(childVisibleIndexes));
+        }
     }
-    else {
-        return std::make_pair(proxyLeft, proxyRight);
-    }
+    return indexes;
 }
 
 void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles)
@@ -257,10 +295,11 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
         return;
     }
 
-    const auto proxyRange = mapToSourceRange(sourceLeft, sourceRight);
-    if (proxyRange.first.isValid()) {
-        Q_EMIT dataChanged(proxyRange.first, proxyRange.second, roles);
+    const auto proxyRange = mapFromSourceRange(sourceLeft, sourceRight);
+    for (const auto& range : proxyRange) {
+        Q_EMIT dataChanged(range.first, range.second, roles);
     }
+    // TODO update visible / hidden items
 }
 
 QModelIndex ItemFilterProxyModel::getProxyNearestParentIndex(const QModelIndex &sourceIndex) const
@@ -269,7 +308,7 @@ QModelIndex ItemFilterProxyModel::getProxyNearestParentIndex(const QModelIndex &
     Q_ASSERT(sourceIndex.model() == this);
 
     QModelIndex matchingProxyParentIndex;
-    auto sourceParentIndex = sourceIndex.parent();
+    auto sourceParentIndex = sourceIndex;
     do {
         matchingProxyParentIndex = mapFromSource(sourceParentIndex);
     }
@@ -293,40 +332,38 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModel::appendIndex(const QModelIn
     return child;
 }
 
-void ItemFilterProxyModel::onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
-{
-    auto model = sourceModel();
-    const auto column = sourceParent.column() >= 0 ? sourceParent.column() : 0;
-    const auto sourceFirstIndex = model->index(sourceFirst, column, sourceParent);
-    const auto sourceLastIndex = model->index(sourceLast, column, sourceParent);
-    auto proxyFirstIndex = mapFromSource(sourceFirstIndex);
-    if (!proxyFirstIndex.isValid()) {
-        const auto proxyParent = getProxyNearestParentIndex(sourceFirstIndex);
-        if (!proxyParent.isValid()) {
-            return;
-        }
-        // TODO
-    }
-    auto proxyLastIndex = mapFromSource(sourceLastIndex);
-    if (!proxyLastIndex.isValid()) {
-        // TODO
-    }
-    beginInsertRows(proxyFirstIndex.parent(), proxyFirstIndex.row(), proxyLastIndex.row());
-}
-
-void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
-{
-    // TODO
-    Q_ASSERT(false);
-}
-
 void ItemFilterProxyModel::onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
 {
-    // TODO
-    Q_ASSERT(false);
+    const auto proxyRange = mapFromSourceRange(sourceParent, sourceFirst, sourceLast);
+    for (const auto& [first, last] : proxyRange) {
+        Q_ASSERT(first.isValid() && last.isValid());
+        Q_ASSERT(first.parent() == last.parent());
+        Q_ASSERT(first.model() == this && last.model() == this);
+        Q_EMIT beginRemoveRows(first.parent(), first.row(), last.row());
+    }
 }
 
 void ItemFilterProxyModel::onRowsRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+    const auto proxyRange = mapFromSourceRange(sourceParent, sourceFirst, sourceLast);
+    for (const auto& [first, last] : proxyRange) {
+        Q_ASSERT(first.isValid() && last.isValid());
+        Q_ASSERT(first.parent() == last.parent());
+        Q_ASSERT(first.model() == this && last.model() == this);
+        
+        // TODO
+
+    }
+    Q_EMIT endRemoveRows();
+}
+
+void ItemFilterProxyModel::onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+   // TODO
+    Q_ASSERT(false);
+}
+
+void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
 {
     // TODO
     Q_ASSERT(false);

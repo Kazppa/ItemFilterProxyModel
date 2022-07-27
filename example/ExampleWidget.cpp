@@ -14,7 +14,6 @@
 #include "ExampleItemFilterProxyModel.h"
 #include "ExampleTreeView.h"
 
-
 ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 {
     _sourceModel = new ExampleItemModel(this);
@@ -120,6 +119,9 @@ void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
 {
     const auto fromView = sender() == _sourceTreeView ? _sourceTreeView : _proxyTreeView;
     const auto toView = fromView == _sourceTreeView ? _proxyTreeView : _sourceTreeView;
+    if (!fromView->model() || !toView->model()) {
+        return;
+    }
 
     QModelIndex toViewIndex;
     if (_proxyTreeView->model() == _proxyModel) {
@@ -138,4 +140,3 @@ void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
         toView->setCurrentIndex(toViewIndex);
     });
 }
-

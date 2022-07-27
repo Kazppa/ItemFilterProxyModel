@@ -3,7 +3,7 @@
 
 #include "ItemFilterProxyModel.h"
 
-class ExampleItemFilterProxyModel : public ItemFilterProxyModel
+class ExampleItemFilterProxyModel : public kaz::ItemFilterProxyModel
 {
 public:
     using ItemFilterProxyModel::ItemFilterProxyModel;

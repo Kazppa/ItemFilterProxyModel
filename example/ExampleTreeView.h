@@ -3,6 +3,8 @@
 
 #include <QtWidgets/QTreeView>
 
+class QAction;
+
 class ExampleTreeView : public QTreeView
 {
     Q_OBJECT
@@ -13,9 +15,19 @@ public:
 
     void resizeColumnsToContents();
 
+    void onContextMenuRequested(const QPoint& pos);
+
 protected:
     void currentChanged(const QModelIndex &, const QModelIndex&) override;
 
+    void onRemoveAction();
+
+    QMenu *m_menu;
+    QAction *m_expandAction;
+    QAction *m_collapseAction;
+    QAction *m_expandAllAction;
+    QAction *m_collapseAllAction;
+    QAction *m_removeAction;
 };
 
 #endif //ITEMFILTERPROXYMODEL_EXAMPLETREEVIEW_H

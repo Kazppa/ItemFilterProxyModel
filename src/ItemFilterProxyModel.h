@@ -7,6 +7,9 @@
 #include <QtCore/QVector>
 
 
+namespace kaz
+{
+
 class ItemFilterProxyModel : public QAbstractProxyModel
 {
     Q_OBJECT
@@ -15,19 +18,19 @@ public:
     class ProxyIndexInfo
     {
     public:
+        // Children are sorted by column and then by row
         using ChildrenList = typename std::vector<std::shared_ptr<ProxyIndexInfo>>;
 
         ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParentIndex);
 
         // Return the column's rows range as a pair : [first, second[
         std::pair<ChildrenList::const_iterator, ChildrenList::const_iterator> getColumnBeginEnd(int column) const;
-
+        
+        // Return an iterator to the first row of the given column
         ChildrenList::const_iterator getColumnBegin(int column) const;
 
+        // Return the child index at the given row and column
         std::shared_ptr<ProxyIndexInfo> childAt(int row, int column) const;
-
-        // Return the closest inferior or equal child for the given source row
-        // ChildrenList::const_iterator lowerBoundSourceRow(int sourceRow) const;
 
         QModelIndex m_source;
         QModelIndex m_index;
@@ -61,37 +64,60 @@ public:
 
     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
     
+    // Return false if the row must be hidden by the proxy model
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const = 0;
 
-    // Return the mapped range for this proxyModel, in worst case the second value est equal to the first (both being invalid)
-    std::pair<QModelIndex, QModelIndex> mapToSourceRange(const QModelIndex &sourceLeft, const QModelIndex& sourceRight) const;
+    enum SelectionParameter
+    {
+        None = 0,
+        IncludeChildrenIfInvisible = 1
+    };
+    Q_DECLARE_FLAGS(SelectionParameters, SelectionParameter);
 
-private:
+    std::vector<std::pair<QModelIndex, QModelIndex>> mapFromSourceRange(
+        const QModelIndex &sourceLeft, const QModelIndex& sourceRight, const SelectionParameters parameters = None) const;
+
+    std::vector<std::pair<QModelIndex, QModelIndex>> mapFromSourceRange(
+        const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const SelectionParameters parameters = None) const;
+
+    // For each source child index, return the first visible index (check recursively down in the tree)
+    QModelIndexList getProxyChildrenIndexes(const QModelIndex &sourceIndex) const;
+
+protected:
     void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
 
     // Return the proxy index matching the sourceIndex : if the latter is not visible, search recursively a visible parent
     QModelIndex getProxyNearestParentIndex(const QModelIndex &sourceIndex) const;
 
+    // Insert a new proxy index for the given source index, as a child of proxyParent
     std::shared_ptr<ProxyIndexInfo> appendIndex(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
+
+    /*
+    * Bunch of callbacks to handle source model modifications
+    */
+    void onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
+    void onRowsRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
 
     void onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
     void onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
 
-    void onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-    void onRowsRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-
     void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
     void onRowsMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
 
+    // Recalculate the proxy mapping (used when a source model reset happens)
     void updateProxyIndexes();
 
-    // Recursively insert indexes based on sourceModel()'s indexes
+    // Recursively insert proxy indexes mapping based on sourceModel()'s indexes
     void fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo);
 
-    // SourceIndex -> ProxyIndex
-    mutable QHash<QModelIndex, QModelIndex> m_sourceIndexHash;
-    // ProxyIndex -> infos
-    mutable std::unordered_map<QModelIndex, std::shared_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
+    // Mapping source index -> proxy index
+    QHash<QModelIndex, QModelIndex> m_sourceIndexHash;
+    // Mapping proxy index -> ProxyIndexInfo
+    std::unordered_map<QModelIndex, std::shared_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(ItemFilterProxyModel::SelectionParameters);
+
+} // end namespace kaz   
 
 #endif // __STRUCTUREPROXYMODEL_H__
