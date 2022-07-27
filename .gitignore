@@ -1,5 +1,6 @@
 build
 .idea
+c_cpp_properties.json
 
 ### C++ template
 # Prerequisites
