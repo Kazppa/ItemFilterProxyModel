@@ -32,6 +32,9 @@ public:
         // Return the child index at the given row and column
         std::shared_ptr<ProxyIndexInfo> childAt(int row, int column) const;
 
+        // Return the number of rows for the given column
+        int rowCount(int column) const;
+
         QModelIndex m_source;
         QModelIndex m_index;
         std::shared_ptr<ProxyIndexInfo> m_parent;
@@ -92,17 +95,17 @@ protected:
     // Insert a new proxy index for the given source index, as a child of proxyParent
     std::shared_ptr<ProxyIndexInfo> appendIndex(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
 
+    void eraseIndexRecursively(std::shared_ptr<ProxyIndexInfo>& proxyIndexInfo, bool removeFromParent = true);
+
+    // Update children's rows (used after an insertion or a suppression of a child)
+    void updateChildrenRows(ProxyIndexInfo& parentProxyInfo);
+
     /*
     * Bunch of callbacks to handle source model modifications
     */
     void onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-    void onRowsRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-
     void onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-    void onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-
     void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
-    void onRowsMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
 
     // Recalculate the proxy mapping (used when a source model reset happens)
     void updateProxyIndexes();

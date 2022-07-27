@@ -26,7 +26,8 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     cat.setEnabled(QtMsgType::QtCriticalMsg, true);
     cat.setEnabled(QtMsgType::QtFatalMsg, true);
     cat.setEnabled(QtMsgType::QtInfoMsg, true);
-    auto tester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+    auto sourceTester = new QAbstractItemModelTester(_sourceModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+    auto proxyTester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 #endif
 
     _sourceTreeView = new ExampleTreeView();
@@ -58,8 +59,8 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     _syncViewsCheckBox->setChecked(true);
 
     QTimer::singleShot(1, [this] {
-    _proxyTreeView->resizeColumnsToContents();
-    _sourceTreeView->resizeColumnsToContents();
+        _proxyTreeView->resizeColumnsToContents();
+        _sourceTreeView->resizeColumnsToContents();
     });
 }
 
