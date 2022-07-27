@@ -82,12 +82,11 @@ QtGui
 QtWidgets  
 </pre>
 </details>
-<br/>
 This class was made with (and for) Qt6 but might works with Qt5 (i didn't test it though).  
 
 ## Contributing
-If this project happens to be useful in one of your project and you do make some changes / improvement, feel free to create a pull request to help the next guy coming by this repo.
+If this project happens to be useful in one of your project and you do make some changes / improvements, feel free to create a pull request to help the next guy coming by this repo.
 
 ## License
 The whole repository is licensed under `Apache-2.0`.  
-It means you can use it for more or less whatever you want, read [License.md] for the full license.
+It means you can use it for more or less whatever you want, read [License.md](License.md) for the full license.
