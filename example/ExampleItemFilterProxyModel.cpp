@@ -19,5 +19,5 @@ bool ExampleItemFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIn
 {
     const auto sourceIndex = sourceModel()->index(sourceRow, 0, sourceParent);
     const auto text = sourceModel()->data(sourceIndex, Qt::DisplayRole).toString();
-    return noneOf(text, u"A17", u"A10", u"D");
+    return noneOf(text, u"A14", u"A17", u"A10", u"D");
 }

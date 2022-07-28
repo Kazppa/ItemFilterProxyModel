@@ -96,34 +96,36 @@ protected:
     void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
 
     // Return the proxy index matching the sourceIndex : if the latter is not visible, search recursively a visible parent
-    QModelIndex getProxyNearestParentIndex(const QModelIndex &sourceIndex) const;
+    std::shared_ptr<ProxyIndexInfo> getProxyNearestParentIndex(const QModelIndex &sourceIndex) const;
 
     // Insert a new proxy index for the given source index, as a child of proxyParent
-    std::shared_ptr<ProxyIndexInfo> appendIndex(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
+    std::shared_ptr<ProxyIndexInfo> appendSourceIndexInSortedIndexes(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
 
-    void eraseRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow);
+    void removeRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow);
 
     // Update children's rows (used after an insertion or a suppression of a child)
     void updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo);
 
-    void moveRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow, )
+    void moveRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow,
+        const std::shared_ptr<ProxyIndexInfo>& destinationInfo, int destinationRow);
 
     /*
     * Bunch of callbacks to handle source model modifications
     */
     void onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
     void onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-    void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd, const QModelIndex &destinationParent);
+    void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd,
+        const QModelIndex &destinationParent, int destinationRow);
 
     // Recalculate the proxy mapping (used when a source model reset happens)
-    void updateProxyIndexes();
+    void resetProxyIndexes();
 
     // Recursively insert proxy indexes mapping based on sourceModel()'s indexes
     void fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo);
 
     // Mapping source index -> proxy index
     QHash<QPersistentModelIndex, std::shared_ptr<ProxyIndexInfo>> m_sourceIndexHash;
-    // Mapping proxy index -> ProxyIndexInfo
+    // Mapping proxy index
     std::unordered_map<QModelIndex, std::shared_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
 };
 
