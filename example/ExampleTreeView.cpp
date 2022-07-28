@@ -61,9 +61,8 @@ void ExampleTreeView::currentChanged(const QModelIndex &newIdx, const QModelInde
 void ExampleTreeView::onRemoveAction()
 {
     const auto model = QTreeView::model();
-    const auto indexesToRemove = selectedIndexes();
-    for (const auto& index : indexesToRemove) {
-        model->removeRow(index.row(), index.parent());
-    }
+    const auto index = currentIndex();
+    const auto text = index.data().toString();
+    model->removeRow(index.row(), index.parent());
 }
 

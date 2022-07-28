@@ -35,7 +35,7 @@ public:
         // Return the number of rows for the given column
         int rowCount(int column) const;
 
-        QModelIndex m_source;
+        QPersistentModelIndex m_source;
         QModelIndex m_index;
         std::shared_ptr<ProxyIndexInfo> m_parent;
         ChildrenList m_children{};
@@ -95,10 +95,10 @@ protected:
     // Insert a new proxy index for the given source index, as a child of proxyParent
     std::shared_ptr<ProxyIndexInfo> appendIndex(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
 
-    void eraseIndexRecursively(std::shared_ptr<ProxyIndexInfo>& proxyIndexInfo, bool removeFromParent = true);
+    void eraseRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow);
 
     // Update children's rows (used after an insertion or a suppression of a child)
-    void updateChildrenRows(ProxyIndexInfo& parentProxyInfo);
+    void updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo);
 
     /*
     * Bunch of callbacks to handle source model modifications
@@ -114,7 +114,7 @@ protected:
     void fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo);
 
     // Mapping source index -> proxy index
-    QHash<QModelIndex, QModelIndex> m_sourceIndexHash;
+    QHash<QPersistentModelIndex, QModelIndex> m_sourceIndexHash;
     // Mapping proxy index -> ProxyIndexInfo
     std::unordered_map<QModelIndex, std::shared_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
 };

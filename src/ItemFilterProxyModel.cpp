@@ -1,6 +1,7 @@
 #include "ItemFilterProxyModel.h"
 
 #include <QtCore/QDateTime>
+#include <QtCore/QStack>
 
 using namespace kaz;    // fine in a cpp file
 using ProxyIndexInfo = ItemFilterProxyModel::ProxyIndexInfo;
@@ -122,6 +123,8 @@ void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)
     });
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeInserted, this, &ItemFilterProxyModel::onRowsAboutToBeInserted);
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeRemoved, this, &ItemFilterProxyModel::onRowsAboutToBeRemoved);
+    connect(newSourceModel, &QAbstractItemModel::rowsRemoved, this, [this](const QModelIndex &sourceParent, int sourceLeft, int sourceRight, auto... args) {
+    });
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeMoved, this, &ItemFilterProxyModel::onRowsAboutToBeMoved);
 
     updateProxyIndexes();
@@ -168,6 +171,10 @@ int ItemFilterProxyModel::rowCount(const QModelIndex &parentIndex) const
     }
 
     const auto column = parentIndex.column() >= 0 ? parentIndex.column() : 0;
+    const auto text = it->second->m_index.data().toString();
+    if (text == u"A25") {
+        qDebug();
+    }
     return it->second->rowCount(column);
 }
 
@@ -352,40 +359,49 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModel::appendIndex(const QModelIn
     return child;
 }
 
-void ItemFilterProxyModel::eraseIndexRecursively(std::shared_ptr<ProxyIndexInfo>& proxyIndexInfo, bool removeFromParent)
+void ItemFilterProxyModel::eraseRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow)
 {
-    Q_ASSERT(!proxyIndexInfo->m_index.isValid() || proxyIndexInfo->m_index.model() == this);
-    if (removeFromParent) {
-        Q_ASSERT(proxyIndexInfo->m_parent);
-        auto& parentChildren = proxyIndexInfo->m_parent->m_children;
-        const auto parentEnd = parentChildren.end();
-        parentChildren.erase(std::remove_if(parentChildren.begin(), parentEnd,
-            [row = proxyIndexInfo->m_index.row()](const std::shared_ptr<ProxyIndexInfo>& child) {
-                return child->m_index.row() == row;
-        }), parentEnd);
+    Q_ASSERT(!parentProxyInfo->m_index.isValid() || parentProxyInfo->m_index.model() == this);
+    QStack<std::shared_ptr<ProxyIndexInfo>> stack;
+    auto& parentChildren = parentProxyInfo->m_children;
+    const auto end = parentChildren.end();
+    parentChildren.erase(std::remove_if(parentChildren.begin(), end, [&](const std::shared_ptr<ProxyIndexInfo>& proxyInfo) {
+        const auto row = proxyInfo->m_index.row();
+        if (row < firstRow || row > lastRow) {
+            return false;
+        }
+        m_sourceIndexHash.remove(proxyInfo->m_source);
+        m_proxyIndexHash.erase(proxyInfo->m_index);
+        for (auto& child : proxyInfo->m_children) {
+            stack.push(std::move(child));
+        }
+        return true;
+    }), end);
+
+    while (!stack.empty()) {
+        const auto parentInfo = std::move(stack.top());
+        stack.pop();
+
+        m_sourceIndexHash.remove(parentInfo->m_source);
+        m_proxyIndexHash.erase(parentInfo->m_index);
+        for (auto& child : parentInfo->m_children) {
+            stack.push(std::move(child));
+        }
+        parentInfo->m_children.clear();
     }
-    for (auto& child : proxyIndexInfo->m_children) {
-        eraseIndexRecursively(child, false);
-    }
-    m_sourceIndexHash.remove(proxyIndexInfo->m_source);
-    m_proxyIndexHash.erase(proxyIndexInfo->m_index);
-    proxyIndexInfo->m_children.clear();
-    proxyIndexInfo.reset();
+
+    updateChildrenRows(parentProxyInfo);
 }
 
-void ItemFilterProxyModel::updateChildrenRows(ProxyIndexInfo& parentProxyInfo)
+void ItemFilterProxyModel::updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo)
 {
-    // Removed deleted child (if any)
-    parentProxyInfo.m_children.erase(std::remove_if(parentProxyInfo.m_children.begin(), parentProxyInfo.m_children.end(), [](const auto& child) {
-        return !child;
-    }), parentProxyInfo.m_children.end());
-
-    if (parentProxyInfo.m_children.empty()) {
+    auto& parentChildren = parentProxyInfo->m_children;
+    if (parentChildren.empty()) {
         return;
     }   
 
     int expectedRow = 0, col = 0;
-    for (auto& child : parentProxyInfo.m_children) {
+    for (auto& child : parentChildren) {
         auto& childIndex = child->m_index;
         const auto childRow = childIndex.row();
         const auto childColumn = childIndex.column();
@@ -407,7 +423,13 @@ void ItemFilterProxyModel::updateChildrenRows(ProxyIndexInfo& parentProxyInfo)
             childIndex = createIndex(expectedRow, col, childIndex.internalId());
             // Edit exising source index mapping
             m_sourceIndexHash[child->m_source] = childIndex;
+#ifdef QT_DEBUG
+            const auto it =
+#endif
             m_proxyIndexHash.emplace(childIndex, child);
+#ifdef QT_DEBUG
+            Q_ASSERT(it.second);
+#endif
         }
         ++expectedRow;
     }
@@ -421,18 +443,12 @@ void ItemFilterProxyModel::onRowsAboutToBeRemoved(const QModelIndex& sourceParen
         Q_ASSERT(first.parent() == last.parent());
         Q_ASSERT(first.model() == this && last.model() == this);
         const auto proxyParent = first.parent();
-        const auto column = first.column();
         const auto firstRow = first.row();
         const auto lastRow = last.row();
-        const auto proxyParentInfo = m_proxyIndexHash.at(proxyParent);
+        auto proxyParentInfo = m_proxyIndexHash.at(proxyParent);
 
         Q_EMIT beginRemoveRows(proxyParent, firstRow, lastRow);
-        for (int row = lastRow; row >= firstRow; --row) {
-            const auto proxyIndex = index(row, column, proxyParent);
-            auto proxyIndexInfo = std::move(m_proxyIndexHash.at(proxyIndex));
-            eraseIndexRecursively(proxyIndexInfo);
-        }
-        updateChildrenRows(*proxyParentInfo);
+        eraseRows(proxyParentInfo, firstRow, lastRow);
         Q_EMIT endRemoveRows();
     }
 }
