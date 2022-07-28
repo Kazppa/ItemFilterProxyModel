@@ -123,8 +123,6 @@ void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)
     });
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeInserted, this, &ItemFilterProxyModel::onRowsAboutToBeInserted);
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeRemoved, this, &ItemFilterProxyModel::onRowsAboutToBeRemoved);
-    connect(newSourceModel, &QAbstractItemModel::rowsRemoved, this, [this](const QModelIndex &sourceParent, int sourceLeft, int sourceRight, auto... args) {
-    });
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeMoved, this, &ItemFilterProxyModel::onRowsAboutToBeMoved);
 
     updateProxyIndexes();
@@ -140,7 +138,10 @@ QModelIndex ItemFilterProxyModel::index(int row,int column, const QModelIndex &p
     }
     
     const auto child = it->second->childAt(row, column);
-    return child ? child->m_index : QModelIndex();
+    if (!child) {
+        return {};
+    }
+    return child->m_index;
 }
 
 QModelIndex ItemFilterProxyModel::parent(const QModelIndex &childIndex) const
@@ -221,7 +222,8 @@ QModelIndex ItemFilterProxyModel::mapFromSource(const QModelIndex &sourceIndex) 
     }
 
     Q_ASSERT(sourceIndex.model() == sourceModel());
-    return m_sourceIndexHash.value(sourceIndex);
+    const auto it = m_sourceIndexHash.find(sourceIndex);
+    return it == m_sourceIndexHash.end() ? QModelIndex() : (*it)->m_index;
 }
 
 std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModel::mapFromSourceRange(const QModelIndex &sourceLeft,
@@ -321,12 +323,48 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
     if (!sourceLeft.isValid() || !sourceRight.isValid()) {
         return;
     }
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    Q_ASSERT(sourceLeft.model() == sourceModel);
+    Q_ASSERT(sourceRight.model() == sourceModel);
+    Q_ASSERT(sourceLeft.parent() == sourceRight.parent());
+    const auto sourceParent = sourceLeft.parent();
+    const auto sourceLeftRow = sourceLeft.row();
+    for (int sourceRow = sourceRight.row(); sourceRow >= sourceLeftRow; --sourceRow) {
+        auto sourceIndex = sourceModel->index(sourceRow, 0, sourceParent);
+        const auto isNewValueVisible = filterAcceptsRow(sourceRow, sourceParent);
+        const auto proxyInfo = m_sourceIndexHash.value(sourceIndex);
+        if (isNewValueVisible) {
+            if (proxyInfo) {
+                // Proxy index is still value
+                Q_EMIT dataChanged(proxyInfo->m_index, proxyInfo->m_index, roles);
+            }
+            else {
+                // Create a new proxy index
+                // TODO
+            }
+        }
+        else {
+            const auto proxyRow = proxyInfo->row();
+            if (proxyInfo) {
+                // The source index is not visible anymore, the proxy index must be deleted
+                if (!proxyInfo->m_children.empty()) {
+                    // move proxy's children to proxy's parent
+                    beginMoveRows(proxyInfo->m_index, 0, proxyInfo->rowCount(0), proxyInfo->parentIndex(), proxyRow + 1);
+                    // TODO
+                    for ()
+                    endMoveRows();
+                }
 
-    const auto proxyRange = mapFromSourceRange(sourceLeft, sourceRight);
-    for (const auto& range : proxyRange) {
-        Q_EMIT dataChanged(range.first, range.second, roles);
+                beginRemoveRows(proxyInfo->parentIndex(), proxyRow, proxyRow);
+                eraseRows(proxyInfo->m_parent, proxyRow, proxyRow);
+                endResetModel();
+            }
+            else {
+                // Source index was not in the proxy model and is still not supposed to be visible, nothing to do
+                continue;
+            }
+        }
     }
-    // TODO update visible / hidden items
 }
 
 QModelIndex ItemFilterProxyModel::getProxyNearestParentIndex(const QModelIndex &sourceIndex) const
@@ -354,7 +392,7 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModel::appendIndex(const QModelIn
     auto child = std::make_shared<ProxyIndexInfo>(sourceIndex, proxyIndex, proxyParent);
     proxyParent->m_children.insert(columnEnd, child);
 
-    m_sourceIndexHash.emplace(sourceIndex, proxyIndex);
+    m_sourceIndexHash.emplace(sourceIndex, child);
     m_proxyIndexHash.emplace(proxyIndex, child);
     return child;
 }
@@ -389,7 +427,6 @@ void ItemFilterProxyModel::eraseRows(const std::shared_ptr<ProxyIndexInfo>& pare
         }
         parentInfo->m_children.clear();
     }
-
     updateChildrenRows(parentProxyInfo);
 }
 
@@ -421,14 +458,11 @@ void ItemFilterProxyModel::updateChildrenRows(const std::shared_ptr<ProxyIndexIn
             m_proxyIndexHash.erase(childIndex);
             // New proxy mapping
             childIndex = createIndex(expectedRow, col, childIndex.internalId());
-            // Edit exising source index mapping
-            m_sourceIndexHash[child->m_source] = childIndex;
 #ifdef QT_DEBUG
-            const auto it =
-#endif
-            m_proxyIndexHash.emplace(childIndex, child);
-#ifdef QT_DEBUG
+            const auto it = m_proxyIndexHash.emplace(childIndex, child);
             Q_ASSERT(it.second);
+#else
+            m_proxyIndexHash.emplace(childIndex, child);
 #endif
         }
         ++expectedRow;

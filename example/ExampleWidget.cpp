@@ -26,7 +26,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     cat.setEnabled(QtMsgType::QtCriticalMsg, true);
     cat.setEnabled(QtMsgType::QtFatalMsg, true);
     cat.setEnabled(QtMsgType::QtInfoMsg, true);
-    auto sourceTester = new QAbstractItemModelTester(_sourceModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+    // auto sourceTester = new QAbstractItemModelTester(_sourceModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
     auto proxyTester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 #endif
 

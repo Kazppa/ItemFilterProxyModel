@@ -35,6 +35,12 @@ public:
         // Return the number of rows for the given column
         int rowCount(int column) const;
 
+        const QModelIndex& parentIndex() const { return m_parent->m_index; }
+
+        int row() const noexcept { return m_index.row(); }
+
+        int column() const noexcept { return m_index.column(); }
+
         QPersistentModelIndex m_source;
         QModelIndex m_index;
         std::shared_ptr<ProxyIndexInfo> m_parent;
@@ -100,6 +106,8 @@ protected:
     // Update children's rows (used after an insertion or a suppression of a child)
     void updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo);
 
+    void moveRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow, )
+
     /*
     * Bunch of callbacks to handle source model modifications
     */
@@ -114,7 +122,7 @@ protected:
     void fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo);
 
     // Mapping source index -> proxy index
-    QHash<QPersistentModelIndex, QModelIndex> m_sourceIndexHash;
+    QHash<QPersistentModelIndex, std::shared_ptr<ProxyIndexInfo>> m_sourceIndexHash;
     // Mapping proxy index -> ProxyIndexInfo
     std::unordered_map<QModelIndex, std::shared_ptr<ProxyIndexInfo>, ProxyIndexHash> m_proxyIndexHash;
 };
