@@ -45,6 +45,7 @@ public:
 protected:        
     void invalidateRowsFilter();
 
+private:
     void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
 
     /*
@@ -55,24 +56,12 @@ protected:
     void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd,
         const QModelIndex &destinationParent, int destinationRow);
 
-    // Insert a new proxy index for the given source index, as a child of proxyParent
-    std::shared_ptr<ProxyIndexInfo> appendSourceIndexInSortedIndexes(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
+    QModelIndex createIndexImpl(int row, int col, quintptr internalId) const { return createIndex(row, col, internalId); };
 
-    void eraseRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow);
+    friend ItemFilterProxyModelPrivate;
 
-    // Update children's rows (used after an insertion or a suppression of a child)
-    void updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo);
-
-    // Recalculate the proxy mapping (used when a source model reset happens)
-    void resetProxyIndexes();
-
-    // Recursively insert proxy indexes mapping based on sourceModel()'s indexes
-    void fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo);
-
-
-    std::unique_ptr<ItemFilterProxyModelPrivate> m_d;
+    std::unique_ptr<ItemFilterProxyModelPrivate> m_impl;
 };
-
 
 } // end namespace kaz   
 

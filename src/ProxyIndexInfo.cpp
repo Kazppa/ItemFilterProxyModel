@@ -10,7 +10,6 @@ namespace
 
     template<typename ...Callables>
     make_visitor(Callables...) -> make_visitor<Callables...>;
-
 }
 
 ProxyIndexInfo::ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex,
