@@ -8,7 +8,12 @@ class ExampleItemFilterProxyModel : public kaz::ItemFilterProxyModel
 public:
     using ItemFilterProxyModel::ItemFilterProxyModel;
 
+    void setFilteredNames(QStringList names);
+
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
+
+private:
+    QStringList m_filteredNames;
 };
 
 

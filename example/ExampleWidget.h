@@ -9,7 +9,7 @@ class QStandardItem;
 class ExampleItemModel;
 class ExampleItemFilterProxyModel;
 class ExampleTreeView;
-
+class QLineEdit;
 
 class ExampleWidget : public QWidget
 {
@@ -27,11 +27,12 @@ private:
 
     void onViewIndexChanged(const QModelIndex &newIndex);
 
-    ExampleItemModel * _sourceModel;
-    ExampleItemFilterProxyModel* _proxyModel;
-    ExampleTreeView *_sourceTreeView;
-    ExampleTreeView *_proxyTreeView;
-    QCheckBox *_syncViewsCheckBox;
+    ExampleItemModel * m_sourceModel;
+    ExampleItemFilterProxyModel* m_proxyModel;
+    ExampleTreeView *m_sourceTreeView;
+    ExampleTreeView *m_proxyTreeView;
+    QLineEdit *m_filterLineEdit;
+    QCheckBox *m_syncViewsCheckBox;
 };
 
 #endif // __EXAMPLEWIDGET_H__

@@ -71,7 +71,8 @@ treeView->setModel(proxyModel);
 ```
 
 ## Installation
-Copy paste both file from the [src](src) folder into your project and you're good to go ! 
+~~Copy paste both file from the [src](src) folder into your project and you're good to go ! ~~  
+*I guess the project became a bit more complex than that*
 
 **C++17** (or higher) is required.  
 

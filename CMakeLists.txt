@@ -17,10 +17,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt6 COMPONENTS Core Gui Widgets REQUIRED)
 
 add_library(${PROJECT_NAME}
-    src/ItemFilterProxyModel.h
-    src/ItemFilterProxyModel.cpp)
+    include/ItemFilterProxyModel.h
+    src/ItemFilterProxyModel.cpp
+    src/ItemFilterProxyModelPrivate.h
+    src/ItemFilterProxyModelPrivate.cpp
+    src/ProxyIndexInfo.h
+    src/ProxyIndexInfo.cpp)
 
-target_include_directories(${PROJECT_NAME} PUBLIC src)
+target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets)
 
 add_subdirectory(example)

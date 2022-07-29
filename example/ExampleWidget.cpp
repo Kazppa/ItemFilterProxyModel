@@ -9,6 +9,7 @@
 #include <QScrollBar>
 #include <QSplitter>
 #include <QTimer>
+#include <QLineEdit>
 
 #include "ExampleItemModel.h"
 #include "ExampleItemFilterProxyModel.h"
@@ -16,9 +17,9 @@
 
 ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 {
-    _sourceModel = new ExampleItemModel(this);
-    _proxyModel = new ExampleItemFilterProxyModel(this);
-    _proxyModel->setSourceModel(_sourceModel);
+    m_sourceModel = new ExampleItemModel(this);
+    m_proxyModel = new ExampleItemFilterProxyModel(this);
+    m_proxyModel->setSourceModel(m_sourceModel);
 #ifdef QT_DEBUG
     QLoggingCategory cat("qt.modeltest");
     cat.setEnabled(QtMsgType::QtDebugMsg, true);
@@ -26,41 +27,54 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     cat.setEnabled(QtMsgType::QtCriticalMsg, true);
     cat.setEnabled(QtMsgType::QtFatalMsg, true);
     cat.setEnabled(QtMsgType::QtInfoMsg, true);
-    // auto sourceTester = new QAbstractItemModelTester(_sourceModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
-    auto proxyTester = new QAbstractItemModelTester(_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+    auto proxyTester = new QAbstractItemModelTester(m_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 #endif
 
-    _sourceTreeView = new ExampleTreeView();
-    _sourceTreeView->setModel(_sourceModel);
-    _sourceTreeView->expandAll();
+    m_sourceTreeView = new ExampleTreeView();
+    m_sourceTreeView->setModel(m_sourceModel);
+    m_sourceTreeView->expandAll();
 
-    _proxyTreeView = new ExampleTreeView();
-    _proxyTreeView->setModel(_proxyModel);
-    _proxyTreeView->expandAll();
+    m_proxyTreeView = new ExampleTreeView();
+    m_proxyTreeView->setModel(m_proxyModel);
+    m_proxyTreeView->expandAll();
 
-    _syncViewsCheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
+    m_syncViewsCheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
+    m_filterLineEdit = new QLineEdit;
+    m_filterLineEdit->setPlaceholderText(tr("A, A1, F5"));
 
     auto titleLayout = new QHBoxLayout;
     titleLayout->addWidget(new QLabel(QStringLiteral("Source model")), 0, Qt::AlignHCenter);
     titleLayout->addWidget(new QLabel(QStringLiteral("Filtered model")), 0, Qt::AlignHCenter);
 
     auto splitter = new QSplitter;
-    splitter->addWidget(_sourceTreeView);
-    splitter->addWidget(_proxyTreeView);
+    splitter->addWidget(m_sourceTreeView);
+    splitter->addWidget(m_proxyTreeView);
+
+    auto filterLayout = new QHBoxLayout;
+    filterLayout->addWidget(m_syncViewsCheckBox, 50);
+    filterLayout->addWidget(new QLabel(tr("Filtres")), 0, Qt::AlignLeft);
+    filterLayout->addWidget(m_filterLineEdit);
+    m_filterLineEdit->setMinimumWidth(120);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->addLayout(titleLayout);
     mainLayout->addWidget(splitter, 100);
-    mainLayout->addWidget(_syncViewsCheckBox);
+    mainLayout->addLayout(filterLayout, 100);
 
     setMinimumSize(800, 600);
 
-    connect(_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
-    _syncViewsCheckBox->setChecked(true);
+    connect(m_filterLineEdit, &QLineEdit::editingFinished, this, [this]() {
+        const auto filters = m_filterLineEdit->text().split(QRegularExpression(QStringLiteral(",\\s*")), Qt::SkipEmptyParts);
+        m_proxyModel->setFilteredNames(std::move(filters));
+        m_proxyTreeView->expandAll();
+    });
+    m_filterLineEdit->setText(QStringLiteral("A14, A17, A10, D"));
+    connect(m_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
+    m_syncViewsCheckBox->setChecked(true);
 
     QTimer::singleShot(1, [this] {
-        _proxyTreeView->resizeColumnsToContents();
-        _sourceTreeView->resizeColumnsToContents();
+        m_proxyTreeView->resizeColumnsToContents();
+        m_sourceTreeView->resizeColumnsToContents();
     });
 }
 
@@ -68,20 +82,20 @@ void ExampleWidget::onSyncViewsCheckBox(bool isChecked)
 {
     if (isChecked)
     {
-        connect(_sourceTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
-        connect(_proxyTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
+        connect(m_sourceTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
+        connect(m_proxyTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
 
-        connect(_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
-        connect(_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
-        connect(_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
-        connect(_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
+        connect(m_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
+        connect(m_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
+        connect(m_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
+        connect(m_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
     }
     else
     {
-        disconnect(_sourceTreeView->verticalScrollBar(), nullptr, this, nullptr);
-        disconnect(_proxyTreeView->verticalScrollBar(), nullptr, this, nullptr);
-        disconnect(_sourceTreeView, nullptr, this, nullptr);
-        disconnect(_proxyTreeView, nullptr, this, nullptr);
+        disconnect(m_sourceTreeView->verticalScrollBar(), nullptr, this, nullptr);
+        disconnect(m_proxyTreeView->verticalScrollBar(), nullptr, this, nullptr);
+        disconnect(m_sourceTreeView, nullptr, this, nullptr);
+        disconnect(m_proxyTreeView, nullptr, this, nullptr);
     }
 }
 
@@ -100,8 +114,8 @@ void ExampleWidget::onSliderReleased()
 
 void ExampleWidget::onViewScrolled(int newValue)
 {
-    const auto basicViewScrollBar = _sourceTreeView->verticalScrollBar();
-    const auto restructuredViewScrollBar = _proxyTreeView->verticalScrollBar();
+    const auto basicViewScrollBar = m_sourceTreeView->verticalScrollBar();
+    const auto restructuredViewScrollBar = m_proxyTreeView->verticalScrollBar();
     const auto fromScrollBar = sender() == basicViewScrollBar ? basicViewScrollBar : restructuredViewScrollBar;
     const auto toScrollBar = fromScrollBar == basicViewScrollBar ? restructuredViewScrollBar : basicViewScrollBar;
 
@@ -118,19 +132,19 @@ void ExampleWidget::onViewScrolled(int newValue)
 
 void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)
 {
-    const auto fromView = sender() == _sourceTreeView ? _sourceTreeView : _proxyTreeView;
-    const auto toView = fromView == _sourceTreeView ? _proxyTreeView : _sourceTreeView;
+    const auto fromView = sender() == m_sourceTreeView ? m_sourceTreeView : m_proxyTreeView;
+    const auto toView = fromView == m_sourceTreeView ? m_proxyTreeView : m_sourceTreeView;
     if (!fromView->model() || !toView->model()) {
         return;
     }
 
     QModelIndex toViewIndex;
-    if (_proxyTreeView->model() == _proxyModel) {
-        if (toView == _proxyTreeView) {
-            toViewIndex = _proxyModel->mapFromSource(newIndex);
+    if (m_proxyTreeView->model() == m_proxyModel) {
+        if (toView == m_proxyTreeView) {
+            toViewIndex = m_proxyModel->mapFromSource(newIndex);
         }
         else {
-            toViewIndex = _proxyModel->mapToSource(newIndex);
+            toViewIndex = m_proxyModel->mapToSource(newIndex);
         }
     }
     else {
