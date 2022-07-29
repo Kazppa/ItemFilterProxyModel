@@ -11,7 +11,12 @@ using namespace kaz;
 ItemFilterProxyModel::ItemFilterProxyModel(QObject *parent) :
     QAbstractProxyModel(parent)
 {
-    m_impl.reset(new ItemFilterProxyModelPrivate(this));
+    m_impl = new ItemFilterProxyModelPrivate(this);
+}
+
+ItemFilterProxyModel::~ItemFilterProxyModel()
+{
+    delete m_impl;
 }
 
 void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)

@@ -450,7 +450,7 @@ void ItemFilterProxyModelPrivate::resetProxyIndexes()
 void ItemFilterProxyModelPrivate::fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo)
 {
     Q_ASSERT(sourceParent.isValid());
-    Q_ASSERT(sourceParent.model() == m_proxyModel);
+    Q_ASSERT(sourceParent.model() == m_proxyModel->sourceModel());
     Q_ASSERT(parentInfo);
 
     const auto sourceModel = m_proxyModel->sourceModel();

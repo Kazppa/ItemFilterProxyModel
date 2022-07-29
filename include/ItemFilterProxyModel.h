@@ -21,6 +21,8 @@ class ItemFilterProxyModel : public QAbstractProxyModel
 public:
     explicit ItemFilterProxyModel(QObject *parent);
 
+    virtual ~ItemFilterProxyModel();
+
     Q_DISABLE_COPY(ItemFilterProxyModel);
 
     void setSourceModel(QAbstractItemModel *newSourceModel) override;
@@ -60,7 +62,7 @@ private:
 
     friend ItemFilterProxyModelPrivate;
 
-    std::unique_ptr<ItemFilterProxyModelPrivate> m_impl;
+    ItemFilterProxyModelPrivate * m_impl;
 };
 
 } // end namespace kaz   
