@@ -1,10 +1,7 @@
 #ifndef __STRUCTUREPROXYMODEL_H__
 #define __STRUCTUREPROXYMODEL_H__
 
-#include <unordered_map>
-
 #include <QtCore/QAbstractProxyModel>
-#include <QtCore/QVector>
 
 
 namespace kaz

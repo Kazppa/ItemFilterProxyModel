@@ -118,16 +118,16 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
     const auto sourceLeftRow = sourceLeft.row();
     for (int sourceRow = sourceRight.row(); sourceRow >= sourceLeftRow; --sourceRow) {
         auto sourceIndex = sourceModel->index(sourceRow, 0, sourceParent);
-        const auto isNewValueVisible = filterAcceptsRow(sourceRow, sourceParent);
+        const auto isNewDataVisible = filterAcceptsRow(sourceRow, sourceParent);
         const auto proxyInfo = m_impl->m_sourceIndexHash.value(sourceIndex);
-        if (isNewValueVisible) {
+        if (isNewDataVisible) {
             if (proxyInfo) {
                 // Proxy index is still valid and visible
                 Q_EMIT dataChanged(proxyInfo->m_index, proxyInfo->m_index, roles);
                 continue;
             }
 
-            // Create a new proxy index because the source index became visible with this data update
+            // Create a new proxy index because the source index became visible with this data changes
             const auto proxyParent = m_impl->getProxyNearestParentIndex(sourceIndex);
             const auto [row, insertIt] = m_impl->searchInsertableRow(proxyParent, sourceIndex);
             beginInsertRows(proxyParent->m_index, row, row);
@@ -138,8 +138,15 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
             proxyParent->m_children.insert(insertIt, newProxyIndexInfo);
             endInsertRows();
 
-            // TODO move source index's children to the newly created proxy index
-
+            const auto childProxyIndexes = m_impl->getProxyNearestChildrenIndexes(sourceIndex);
+            // TODO move children by "range" instead of one by one
+            for (const auto& childProxyIndex : childProxyIndexes) {
+                const auto sourceRow = childProxyIndex->row();
+                const auto destRow = newProxyIndexInfo->rowCount();
+                beginMoveRows(childProxyIndex->parentIndex(), sourceRow, sourceRow, newProxyIndex, destRow);
+                m_impl->moveRowsImpl(childProxyIndex->m_parent, sourceRow, sourceRow, newProxyIndexInfo, destRow);
+                endMoveRows();
+            }
         }
         else {
             const auto proxyRow = proxyInfo->row();
@@ -155,7 +162,7 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
                 }
                 // Remove the proxy index
                 beginRemoveRows(proxyInfo->parentIndex(), proxyRow, proxyRow);
-                m_impl->eraseRows(proxyInfo->m_parent, proxyRow, proxyRow);
+                m_impl->eraseRowsImpl(proxyInfo->m_parent, proxyRow, proxyRow);
                 endResetModel();
             }
         }
@@ -175,7 +182,7 @@ void ItemFilterProxyModel::onRowsAboutToBeRemoved(const QModelIndex& sourceParen
         auto proxyParentInfo = m_impl->m_proxyIndexHash.at(proxyParent);
 
         Q_EMIT beginRemoveRows(proxyParent, firstRow, lastRow);
-        m_impl->eraseRows(proxyParentInfo, firstRow, lastRow);
+        m_impl->eraseRowsImpl(proxyParentInfo, firstRow, lastRow);
         Q_EMIT endRemoveRows();
     }
 }

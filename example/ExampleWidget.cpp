@@ -52,7 +52,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 
     auto filterLayout = new QHBoxLayout;
     filterLayout->addWidget(m_syncViewsCheckBox, 50);
-    filterLayout->addWidget(new QLabel(tr("Filtres")), 0, Qt::AlignLeft);
+    filterLayout->addWidget(new QLabel(tr("Filters")), 0, Qt::AlignLeft);
     filterLayout->addWidget(m_filterLineEdit);
     m_filterLineEdit->setMinimumWidth(120);
 
@@ -63,12 +63,13 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 
     setMinimumSize(800, 600);
 
-    connect(m_filterLineEdit, &QLineEdit::editingFinished, this, [this]() {
-        const auto filters = m_filterLineEdit->text().split(QRegularExpression(QStringLiteral(",\\s*")), Qt::SkipEmptyParts);
+    connect(m_filterLineEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        const auto filters = text.split(QRegularExpression(QStringLiteral(",\\s*")), Qt::SkipEmptyParts);
         m_proxyModel->setFilteredNames(std::move(filters));
         m_proxyTreeView->expandAll();
     });
     m_filterLineEdit->setText(QStringLiteral("A14, A17, A10, D"));
+
     connect(m_syncViewsCheckBox, &QCheckBox::toggled, this, &ExampleWidget::onSyncViewsCheckBox);
     m_syncViewsCheckBox->setChecked(true);
 

@@ -34,7 +34,7 @@ bool SourceModelIndexLessComparator::operator()(const QModelIndex& left, const Q
     const auto firstText = it.first->data().toString();
     const auto dummy = it.first->model()->index(0, left.column(), *it.second);
     const auto txt = dummy.data().toString();
-    Q_ASSERT(it.first->parent() == it .second->parent());
+    // Q_ASSERT(it.first->parent() == it .second->parent());
     return it.first->row() < it.second->row();
 }
 
@@ -190,9 +190,9 @@ std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModelPrivate::ma
         }
         else if (parameters & IncludeChildrenIfInvisible) {
             // Source index is invisble, select his "direct" visible children instead (check recursively until finding a visible child index)
-            const auto visibleChildren = getProxyChildrenIndexes(sourceIndex);
-            for (const auto& proxyIndex : visibleChildren) {
-                appendIndexToRange(proxyIndex);
+            const auto proxyIndexes = getProxyNearestChildrenIndexes(sourceIndex);
+            for (const auto& proxyIndexInfo : proxyIndexes) {
+                appendIndexToRange(proxyIndexInfo->m_index);
             }
         }
     }
@@ -214,30 +214,6 @@ std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModelPrivate::ma
         return {};
     }
     return mapFromSourceRange(sourceLeft, sourceRight, parameters);
-}
-
-QModelIndexList ItemFilterProxyModelPrivate::getProxyChildrenIndexes(const QModelIndex &sourceIndex) const
-{
-    const auto sourceModel = m_proxyModel->sourceModel();
-    const auto childrenCount = sourceModel->rowCount(sourceIndex);
-    const auto column = sourceIndex.column() >= 0 ? sourceIndex.column() : 0;
-
-    QModelIndexList indexes;
-    indexes.reserve(childrenCount);
-    for (int sourceRow = 0; sourceRow < childrenCount; ++sourceRow) {
-        const auto childSourceIndex = sourceModel->index(sourceRow, column, sourceIndex);
-        const auto proxyIndex = mapFromSource(childSourceIndex);
-        if (proxyIndex.isValid()) {
-            // Visible child
-            indexes.push_back(proxyIndex);
-        }
-        else {
-            // Non visible index, search recursively a visible child
-            auto childVisibleIndexes = getProxyChildrenIndexes(childSourceIndex);
-            indexes.append(std::move(childVisibleIndexes));
-        }
-    }
-    return indexes;
 }
 
 std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyNearestParentIndex(const QModelIndex &sourceIndex) const
@@ -365,7 +341,7 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::appendSourceIndexIn
 }
 
 // TODO Fixme
-void ItemFilterProxyModelPrivate::eraseRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow)
+void ItemFilterProxyModelPrivate::eraseRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow)
 {
     Q_ASSERT(!parentProxyInfo->m_index.isValid() || parentProxyInfo->m_index.model() == m_proxyModel);
     
@@ -408,12 +384,21 @@ void ItemFilterProxyModelPrivate::moveRowsImpl(const std::shared_ptr<ProxyIndexI
     Q_ASSERT(destinationInfo);
     auto& source = parentProxyInfo->m_children;
     auto& destination = destinationInfo->m_children;
+    const auto& destinationIndex = destinationInfo->m_index;
 
     const auto columnCount = parentProxyInfo->columnCount();
     for(int col = 0; col < columnCount; ++col) {
-        const auto sourceIt = parentProxyInfo->getColumnBegin(col);
+        const auto sourceColumnIt = parentProxyInfo->getColumnBegin(col);
+        const auto sourceFirstRowIt = sourceColumnIt + firstRow;
+        const auto sourceLastRowIt = sourceColumnIt + lastRow;
         const auto destIt = destination.begin() + destinationRow;
+
+        const auto insertedChildren = destinationInfo->m_children.insert(destIt,
+        std::make_move_iterator(sourceFirstRowIt), std::make_move_iterator(sourceLastRowIt + 1));
+        // TODO finish
     } 
+    updateChildrenRows(parentProxyInfo);
+    updateChildrenRows(destinationInfo);
 }
 
 

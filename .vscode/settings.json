@@ -80,7 +80,8 @@
         "xlocnum": "cpp",
         "xloctime": "cpp",
         "xstddef": "cpp",
-        "xtr1common": "cpp"
+        "xtr1common": "cpp",
+        "qmodelindex": "cpp"
     },
     "cmake.debugConfig": {
         "visualizerFile": "${workspaceFolder}/qt6.natvis"

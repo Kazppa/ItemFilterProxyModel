@@ -22,8 +22,14 @@ namespace kaz
         // Return an iterator to the first row of the given column
         ChildrenList::const_iterator getColumnBegin(int column) const;
 
+        // Overload with an it for the search
+        ChildrenList::const_iterator getColumnBegin(int column, ChildrenList::const_iterator hintBeginIt) const;
+
+        ChildrenList::const_iterator getColumnEnd(int column, ChildrenList::const_iterator hintBeginIt) const;
+
         // Return the child index at the given row and column
         std::shared_ptr<ProxyIndexInfo> childAt(int row, int column) const;
+        std::shared_ptr<ProxyIndexInfo> childAt(const QModelIndex &idx) const;
 
         // Return the number of rows
         int rowCount() const;

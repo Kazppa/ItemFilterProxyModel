@@ -39,9 +39,28 @@ std::pair<ProxyIndexInfo::ChildrenList::const_iterator, ProxyIndexInfo::Children
 
 ProxyIndexInfo::ChildrenList::const_iterator ProxyIndexInfo::getColumnBegin(int column) const
 {
-    return std::lower_bound(m_children.begin(), m_children.end(), column, [](const auto& child, int column) {
+    return getColumnBegin(column, m_children.begin());
+}
+
+ProxyIndexInfo::ChildrenList::const_iterator ProxyIndexInfo::getColumnBegin(int column, ChildrenList::const_iterator hintBeginIt) const
+{
+    const auto end = m_children.end();
+    Q_ASSERT(hintBeginIt < end && (*hintBeginIt)->column() == column);
+    return std::lower_bound(hintBeginIt, end, column, [](const auto& child, int column) {
         return child->m_index.column() < column;
     });
+}
+
+ProxyIndexInfo::ChildrenList::const_iterator ProxyIndexInfo::getColumnEnd(int column, ChildrenList::const_iterator hintBeginIt) const
+{
+    const auto end = m_children.end();
+    Q_ASSERT(hintBeginIt < end && (*hintBeginIt)->column() == column);
+    for (auto it = hintBeginIt + 1; it != end; ++it) {
+        if ((*it)->column() != column) {
+            return it;
+        }
+    }
+    return end;
 }
 
 std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(int row, int column) const
@@ -56,6 +75,12 @@ std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(int row, int column) con
     const auto child = *(columnIt + row);
     Q_ASSERT(child->m_index.row() == row && child->m_index.column() == column);
     return child;
+}
+
+std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(const QModelIndex &idx) const
+{
+    Q_ASSERT(idx.parent() == m_index);
+    return childAt(idx.row(), idx.column());
 }
 
 int ProxyIndexInfo::rowCount() const

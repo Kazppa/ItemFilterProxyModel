@@ -4,8 +4,11 @@
 #include "ItemFilterProxyModel.h"
 #include "ProxyIndexInfo.h"
 
+#include <unordered_map>
+
 #include <QtCore/qglobal.h>
-#include <QModelIndex>
+#include <QtCore/QModelIndex>
+#include <QtCore/QVector>
 
 namespace kaz
 {
@@ -69,13 +72,11 @@ public:
     std::vector<std::pair<QModelIndex, QModelIndex>> mapFromSourceRange(
         const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const SelectionParameters parameters = None) const;
 
-    // For each source child index, return the first visible index (check recursively down in the tree)
-    QModelIndexList getProxyChildrenIndexes(const QModelIndex &sourceIndex) const;
-
     // Return the proxy index matching the sourceIndex : if the latter is not visible, search recursively a visible parent
     std::shared_ptr<ProxyIndexInfo> getProxyNearestParentIndex(const QModelIndex &sourceIndex) const;
 
-    // Return the proxy index matching for each sourceIndex's children : if the a child indexed is not visible, search recursively all his visible children
+    // For each source child index, return the first visible index
+    // if the child index is not visible, search recursively all his visible children
     std::vector<std::shared_ptr<ProxyIndexInfo>> getProxyNearestChildrenIndexes(const QModelIndex &parentIndex) const;
 
     struct InsertInfo
@@ -90,7 +91,7 @@ public:
     // Insert a new proxy index for the given source index, as a child of proxyParent
     std::shared_ptr<ProxyIndexInfo> appendSourceIndexInSortedIndexes(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent);
 
-    void eraseRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow);
+    void eraseRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow);
 
     void moveRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow,
         const std::shared_ptr<ProxyIndexInfo>& destinationInfo, int destinationRow);
