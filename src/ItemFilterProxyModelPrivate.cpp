@@ -34,7 +34,7 @@ bool SourceModelIndexLessComparator::operator()(const QModelIndex& left, const Q
     const auto firstText = it.first->data().toString();
     const auto dummy = it.first->model()->index(0, left.column(), *it.second);
     const auto txt = dummy.data().toString();
-    // Q_ASSERT(it.first->parent() == it .second->parent());
+    Q_ASSERT(it.first->parent() == it .second->parent());
     return it.first->row() < it.second->row();
 }
 
@@ -275,11 +275,14 @@ ItemFilterProxyModelPrivate::InsertInfo ItemFilterProxyModelPrivate::searchInser
     }
     Q_ASSERT(sourceIndex.model() == proxyChildren.at(0)->m_source.model());
 
-    const auto column = sourceIndex.column();
-    const auto [ columnBegin, columnEnd ] = proxyInfo->getColumnBeginEnd(column);
-    const auto it = std::lower_bound(columnBegin, columnEnd, sourceIndex, SourceModelIndexLessComparator{});
-    return {
-        (int) std::distance(columnBegin, it),
+    const auto beginIt = proxyInfo->columnBegin();
+    const auto endIt = proxyInfo->columnEnd();
+    for (auto d = beginIt; d != endIt; ++d) {
+        qDebug() << "oh";
+    }
+    const auto it = std::lower_bound(beginIt, endIt, sourceIndex, SourceModelIndexLessComparator{});
+    return InsertInfo {
+        it == endIt ? proxyInfo->rowCount() : (*it)->row(),
         it
     };
 }
@@ -328,12 +331,24 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::appendSourceIndexIn
     Q_ASSERT(sourceIndex.isValid());
     Q_ASSERT(proxyParent);
     
+    int proxyRow;
+    if (proxyParent->hasChildren()) {
+        const auto& lastProxyRow = proxyParent->m_children.back();
+        if (lastProxyRow->m_source.row() == sourceIndex.row() && lastProxyRow->m_source.parent() == sourceIndex.parent()) {
+            proxyRow = lastProxyRow->row();
+        }
+        else {
+            proxyRow = proxyParent->rowCount();
+        }
+    }
+    else {
+        proxyRow = 0;
+    }
+
     const auto column = sourceIndex.column();
-    const auto [ columnBegin, columnEnd ] = proxyParent->getColumnBeginEnd(column);
-    const auto proxyRow = std::distance(columnBegin, columnEnd);
     const auto proxyIndex = createIndex(proxyRow, column, sourceIndex.internalId());
     auto child = std::make_shared<ProxyIndexInfo>(sourceIndex, proxyIndex, proxyParent);
-    proxyParent->m_children.insert(columnEnd, child);
+    proxyParent->m_children.push_back(child);
 
     m_sourceIndexHash.emplace(sourceIndex, child);
     m_proxyIndexHash.emplace(proxyIndex, child);
@@ -388,7 +403,7 @@ void ItemFilterProxyModelPrivate::moveRowsImpl(const std::shared_ptr<ProxyIndexI
 
     const auto columnCount = parentProxyInfo->columnCount();
     for(int col = 0; col < columnCount; ++col) {
-        const auto sourceColumnIt = parentProxyInfo->getColumnBegin(col);
+        const auto sourceColumnIt = parentProxyInfo->columnBegin(col);
         const auto sourceFirstRowIt = sourceColumnIt + firstRow;
         const auto sourceLastRowIt = sourceColumnIt + lastRow;
         const auto destIt = destination.begin() + destinationRow;

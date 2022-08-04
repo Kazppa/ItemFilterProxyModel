@@ -28,3 +28,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets)
 
 add_subdirectory(example)
+
+enable_testing()
+add_subdirectory(tests)

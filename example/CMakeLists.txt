@@ -1,3 +1,5 @@
+find_package(Qt6 COMPONENTS Test REQUIRED)
+
 add_executable(ItemFilterProxyModelExample
         main.cpp
         ExampleWidget.h
@@ -8,7 +10,5 @@ add_executable(ItemFilterProxyModelExample
         ExampleItemFilterProxyModel.cpp
         ExampleTreeView.h
         ExampleTreeView.cpp)
-
-find_package(Qt6 COMPONENTS Test REQUIRED)
 
 target_link_libraries(ItemFilterProxyModelExample PRIVATE Qt6::Test ItemFilterProxyModel)

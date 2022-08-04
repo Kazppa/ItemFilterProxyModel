@@ -126,7 +126,7 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
                 Q_EMIT dataChanged(proxyInfo->m_index, proxyInfo->m_index, roles);
                 continue;
             }
-
+            
             // Create a new proxy index because the source index became visible with this data changes
             const auto proxyParent = m_impl->getProxyNearestParentIndex(sourceIndex);
             const auto [row, insertIt] = m_impl->searchInsertableRow(proxyParent, sourceIndex);

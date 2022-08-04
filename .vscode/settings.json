@@ -81,7 +81,9 @@
         "xloctime": "cpp",
         "xstddef": "cpp",
         "xtr1common": "cpp",
-        "qmodelindex": "cpp"
+        "qmodelindex": "cpp",
+        "qsortfilterproxymodel": "cpp",
+        "filesystem": "cpp"
     },
     "cmake.debugConfig": {
         "visualizerFile": "${workspaceFolder}/qt6.natvis"
