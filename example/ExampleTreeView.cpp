@@ -9,7 +9,10 @@ ExampleTreeView::ExampleTreeView(QWidget *parent) :
     verticalScrollBar()->setTracking(true);
     setSelectionMode(SelectionMode::ExtendedSelection);
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
-    setDragDropMode(DragDropMode::InternalMove);
+    viewport()->setAcceptDrops(true);
+    setDragEnabled(true);
+    setDragDropMode(DragDropMode::DragDrop);
+    setDefaultDropAction(Qt::MoveAction);
 
     m_menu = new QMenu(this);
     m_expandAction = m_menu->addAction(tr("Expand"));

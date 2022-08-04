@@ -100,8 +100,12 @@ namespace kaz
         std::pair<ColumnIterator, ColumnIterator> columnBeginEnd(int column) const;
 
         // Return the child index at the given row and column
+        ChildrenList::const_iterator childIt(int row, int column = 0) const;
         std::shared_ptr<ProxyIndexInfo> childAt(int row, int column) const;
         std::shared_ptr<ProxyIndexInfo> childAt(const QModelIndex &idx) const;
+
+        // return a pair of iterator [begin, end[
+        std::pair<ChildrenList::const_iterator, ChildrenList::const_iterator> childRange(const int firstRow, const int lastRow) const;
 
         ChildrenList::const_iterator getRowIt(int row) const noexcept;
 
@@ -109,6 +113,8 @@ namespace kaz
         int rowCount() const;
 
         int columnCount() const;
+
+        std::pair<int, int> rowColCount() const;
 
         const QModelIndex& parentIndex() const { return m_parent->m_index; }
 

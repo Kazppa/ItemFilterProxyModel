@@ -46,13 +46,33 @@ std::pair<ProxyIndexInfo::ColumnIterator, ProxyIndexInfo::ColumnIterator> ProxyI
     );
 }
 
+ProxyIndexInfo::ChildrenList::const_iterator ProxyIndexInfo::childIt(int row, int column) const
+{
+#ifdef QT_DEBUG
+    const auto [ rowCount, colCount ] = rowColCount();
+    Q_ASSERT(row >= 0 && row < rowCount);
+    Q_ASSERT(column >= 0 && column < colCount);
+#else
+    const auto colCount = columnCount();
+#endif
+
+    return m_children.begin() + (row * colCount) + column;
+}
+
 std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(int row, int column) const
 {
-    const auto it = std::lower_bound(m_children.begin(), m_children.end(), std::make_pair(row, column), ChildrenLessComparator{});
-    Q_ASSERT(it != m_children.end());
-    Q_ASSERT((*it)->row() == row && (*it)->column() == column);
-    
-    return *it;
+#ifdef QT_DEBUG
+    const auto [ rowCount, colCount ] = rowColCount();
+    if (row >= rowCount || column >= colCount) {
+        return {};
+    } 
+    Q_ASSERT(row >= 0 && row < rowCount);
+    Q_ASSERT(column >= 0 && column < colCount);
+#else
+    const auto colCount = columnCount();
+#endif
+
+    return *(m_children.begin() + (row * colCount) + column);
 }
 
 std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(const QModelIndex &idx) const
@@ -69,10 +89,38 @@ int ProxyIndexInfo::rowCount() const
     return m_children.back()->row() + 1;
 }
 
+std::pair<ProxyIndexInfo::ChildrenList::const_iterator, ProxyIndexInfo::ChildrenList::const_iterator>
+ProxyIndexInfo::childRange(const int firstRow, const int lastRow) const
+{
+#ifdef QT_DEBUG
+    const auto [ rowCount, colCount ] = rowColCount();
+    Q_ASSERT(firstRow >= 0 && firstRow <= lastRow);
+    Q_ASSERT(lastRow < rowCount);
+#else
+    const auto colCount = columnCount();
+#endif
+
+    const auto begin = m_children.begin();
+    return std::make_pair(
+        begin + (firstRow * colCount),
+        begin + ((lastRow * colCount) + 1)
+    );
+}
+
 int ProxyIndexInfo::columnCount() const
 {
     if (m_children.empty()) {
         return 0;
     }
     return m_children.back()->column() + 1;
+}
+
+std::pair<int, int> ProxyIndexInfo::rowColCount() const
+{
+    if (m_children.empty()) {
+        return std::make_pair(0, 0);
+    }
+    
+    const auto& idx = m_children.back()->m_index;
+    return std::make_pair(idx.row() + 1, idx.column() + 1);
 }

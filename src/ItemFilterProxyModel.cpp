@@ -47,7 +47,7 @@ void ItemFilterProxyModel::setSourceModel(QAbstractItemModel *newSourceModel)
         m_impl->resetProxyIndexes();
         layoutChanged();
     });
-    connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeInserted, this, &ItemFilterProxyModel::onRowsAboutToBeInserted);
+    connect(newSourceModel, &QAbstractItemModel::rowsInserted, this, &ItemFilterProxyModel::onRowsInserted);
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeRemoved, this, &ItemFilterProxyModel::onRowsAboutToBeRemoved);
     connect(newSourceModel, &QAbstractItemModel::rowsAboutToBeMoved, this, &ItemFilterProxyModel::onRowsAboutToBeMoved);
 
@@ -128,7 +128,7 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
             }
             
             // Create a new proxy index because the source index became visible with this data changes
-            const auto proxyParent = m_impl->getProxyNearestParentIndex(sourceIndex);
+            const auto proxyParent = m_impl->getProxyParentIndex(sourceIndex);
             const auto [row, insertIt] = m_impl->searchInsertableRow(proxyParent, sourceIndex);
             beginInsertRows(proxyParent->m_index, row, row);
             const auto newProxyIndex = createIndex(row, sourceIndex.column(), sourceIndex.internalId());
@@ -138,7 +138,7 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
             proxyParent->m_children.insert(insertIt, newProxyIndexInfo);
             endInsertRows();
 
-            const auto childProxyIndexes = m_impl->getProxyNearestChildrenIndexes(sourceIndex);
+            const auto childProxyIndexes = m_impl->getProxyChildrenIndexes(sourceIndex);
             // TODO move children by "range" instead of one by one
             for (const auto& childProxyIndex : childProxyIndexes) {
                 const auto sourceRow = childProxyIndex->row();
@@ -172,30 +172,50 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
 void ItemFilterProxyModel::onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
 {
     const auto proxyRange = m_impl->mapFromSourceRange(sourceParent, sourceFirst, sourceLast);
-    for (const auto& [first, last] : proxyRange) {
+    for (const auto& [firstInfo, lastInfo] : proxyRange) {
+        const auto& first = firstInfo->m_index;
+        const auto& last = lastInfo->m_index;
         Q_ASSERT(first.isValid() && last.isValid());
         Q_ASSERT(first.parent() == last.parent());
         Q_ASSERT(first.model() == this && last.model() == this);
-        const auto proxyParent = first.parent();
         const auto firstRow = first.row();
         const auto lastRow = last.row();
-        auto proxyParentInfo = m_impl->m_proxyIndexHash.at(proxyParent);
+        const auto& proxyParentInfo = firstInfo->m_parent;
 
-        Q_EMIT beginRemoveRows(proxyParent, firstRow, lastRow);
+        Q_EMIT beginRemoveRows(proxyParentInfo->m_index, firstRow, lastRow);
         m_impl->eraseRowsImpl(proxyParentInfo, firstRow, lastRow);
         Q_EMIT endRemoveRows();
     }
 }
 
-void ItemFilterProxyModel::onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
 {
-   // TODO
-    Q_ASSERT(false);
+    auto sourceModel = ItemFilterProxyModel::sourceModel();
+    const auto proxyParent = m_impl->getProxyParentIndex(sourceModel->index(sourceFirst, 0, sourceParent));
 }
 
 void ItemFilterProxyModel::onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd,
     const QModelIndex &destinationParent, int destinationRow)
 {
-    // TODO
-    Q_ASSERT(false);
+    const auto sourceModel = ItemFilterProxyModel::sourceModel();
+    Q_ASSERT(sourceParent.model() == sourceModel);
+    Q_ASSERT(destinationParent.model() == sourceModel);
+    const auto destinationInfo = m_impl->getProxyNearestIndex(destinationParent);
+    const auto destinationSourceIndex = sourceModel->index(destinationRow, 0, destinationParent);
+    auto [destRow, destIt] = m_impl->searchInsertableRow(destinationInfo, destinationSourceIndex);
+
+    const auto proxyIndexes = m_impl->mapFromSourceRange(sourceParent, sourceStart, sourceEnd, ItemFilterProxyModelPrivate::IncludeChildrenIfInvisible);
+    for (const auto& [firstInfo, lastInfo] : proxyIndexes) {
+        const auto& parentInfo = firstInfo->m_parent;
+        const auto firstRow = firstInfo->row();
+        const auto lastRow = lastInfo->row();
+        Q_ASSERT(firstRow <= lastRow);
+
+        beginMoveRows(parentInfo->m_index, firstRow, lastRow, destinationInfo->m_index, destRow);
+        m_impl->moveRowsImpl(parentInfo, firstRow, lastRow, destinationInfo, destRow);
+        m_impl->updateChildrenRows(parentInfo);
+        m_impl->updateChildrenRows(destinationInfo);
+        endMoveRows();
+        destRow += lastRow - firstRow;
+    }
 }

@@ -23,19 +23,27 @@ bool SourceModelIndexLessComparator::operator()(const QModelIndex& left, const Q
 {
     Q_ASSERT(left.isValid() && right.isValid());
     Q_ASSERT(left.column() == right.column());
+    ProxyIndexInfo::ChildrenLessComparator indexComparator;
     if (left.parent() == right.parent()) {
-        return left.row() < right.row();
+        return indexComparator(left, right);
     }
 
     const auto& leftParents = getSourceIndexParents(left);
     const auto& rightParents = getSourceIndexParents(right);
+    const auto leftParentsEnd = leftParents.rend();
+    const auto rightParentsEnd = rightParents.rend();
     
-    const auto it = std::mismatch(leftParents.rbegin(), leftParents.rend(), rightParents.rbegin(), rightParents.rend());
-    const auto firstText = it.first->data().toString();
-    const auto dummy = it.first->model()->index(0, left.column(), *it.second);
-    const auto txt = dummy.data().toString();
-    Q_ASSERT(it.first->parent() == it .second->parent());
-    return it.first->row() < it.second->row();
+    const auto [ leftLastIndex, rightLastIndex ] = std::mismatch(leftParents.rbegin(), leftParentsEnd, rightParents.rbegin(), rightParentsEnd);
+    if (leftLastIndex == leftParentsEnd) {
+        return true;
+    }
+    else if (rightLastIndex == rightLastIndex) {
+        return false;
+    }
+
+    Q_ASSERT(*leftLastIndex != *rightLastIndex);
+    Q_ASSERT(leftLastIndex->parent() == rightLastIndex->parent());
+    return indexComparator(*leftLastIndex, *rightLastIndex);
 }
 
 bool SourceModelIndexLessComparator::operator()(const QModelIndex &left, const std::shared_ptr<ProxyIndexInfo>& right) const
@@ -148,7 +156,7 @@ QModelIndex ItemFilterProxyModelPrivate::mapFromSource(const QModelIndex &source
     return it == m_sourceIndexHash.end() ? QModelIndex() : (*it)->m_index;
 }
 
-std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModelPrivate::mapFromSourceRange(const QModelIndex &sourceLeft,
+std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ItemFilterProxyModelPrivate::mapFromSourceRange(const QModelIndex &sourceLeft,
     const QModelIndex& sourceRight, const SelectionParameters parameters) const
 {
     const auto sourceModel = m_proxyModel->sourceModel();
@@ -161,49 +169,50 @@ std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModelPrivate::ma
     const auto sourceRightRow = sourceRight.row();
     const auto column = sourceLeft.column();
     
-    QModelIndex proxyIndexEndRange, proxyIndexBeginRange = mapFromSource(sourceLeft);
-    std::vector<std::pair<QModelIndex, QModelIndex>> ranges;
-    const auto appendIndexToRange = [&](const QModelIndex &proxyIndex) {
-        if (!proxyIndexBeginRange.isValid()) {
+    auto proxyIndexBeginRange = m_sourceIndexHash.value(sourceLeft);
+    std::shared_ptr<ProxyIndexInfo> proxyIndexEndRange;
+    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ranges;
+    const auto appendIndexToRange = [&](const std::shared_ptr<ProxyIndexInfo> &proxyInfo) {
+        if (!proxyIndexBeginRange) {
             // New range
-            proxyIndexBeginRange = proxyIndex;
+            proxyIndexBeginRange = proxyInfo;
             return;
         }
 
-        if (proxyIndex.parent() == proxyIndexBeginRange.parent()) {
+        if (proxyInfo->m_parent == proxyIndexBeginRange->m_parent) {
             // Enlarge the current range
-            proxyIndexEndRange = proxyIndex;
+            proxyIndexEndRange = proxyInfo;
         }
         else {
             // End of the range, insert in the results
-            ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange.isValid() ? proxyIndexEndRange : proxyIndexBeginRange);
-            proxyIndexBeginRange = proxyIndex;
-            proxyIndexEndRange = QModelIndex();
+            ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange ? proxyIndexEndRange : proxyIndexBeginRange);
+            proxyIndexBeginRange = proxyInfo;
+            proxyIndexEndRange.reset();
         }
     };
 
     for (int sourceRow = sourceLeftRow + 1; sourceRow < sourceRightRow; ++sourceRow) {
         const auto sourceIndex = sourceModel->index(sourceRow, column, sourceParent);
-        const auto proxyIndex = mapFromSource(sourceIndex);
-        if (proxyIndex.isValid()) {
-            appendIndexToRange(proxyIndex);
+        const auto proxyInfo = m_sourceIndexHash.value(sourceIndex);
+        if (proxyInfo) {
+            appendIndexToRange(proxyInfo);
         }
         else if (parameters & IncludeChildrenIfInvisible) {
             // Source index is invisble, select his "direct" visible children instead (check recursively until finding a visible child index)
-            const auto proxyIndexes = getProxyNearestChildrenIndexes(sourceIndex);
+            const auto proxyIndexes = getProxyChildrenIndexes(sourceIndex);
             for (const auto& proxyIndexInfo : proxyIndexes) {
-                appendIndexToRange(proxyIndexInfo->m_index);
+                appendIndexToRange(proxyIndexInfo);
             }
         }
     }
 
-    if (proxyIndexBeginRange.isValid()) {
-        ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange.isValid() ? proxyIndexEndRange : proxyIndexBeginRange);
+    if (proxyIndexBeginRange) {
+        ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange ? proxyIndexEndRange : proxyIndexBeginRange);
     }
     return ranges;
 }
 
-std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModelPrivate::mapFromSourceRange(
+std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ItemFilterProxyModelPrivate::mapFromSourceRange(
         const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const SelectionParameters parameters) const
 {
     const auto sourceModel = m_proxyModel->sourceModel();
@@ -211,43 +220,49 @@ std::vector<std::pair<QModelIndex, QModelIndex>> ItemFilterProxyModelPrivate::ma
     const auto sourceLeft = sourceModel->index(sourceFirst, column, sourceParent);
     const auto sourceRight = sourceModel->index(sourceLast, column, sourceParent);
     if (!sourceLeft.isValid() || !sourceRight.isValid()) {
+        Q_ASSERT(false);
         return {};
     }
     return mapFromSourceRange(sourceLeft, sourceRight, parameters);
 }
 
-std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyNearestParentIndex(const QModelIndex &sourceIndex) const
+std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyParentIndex(const QModelIndex &sourceIndex) const
 {
     Q_ASSERT(sourceIndex.isValid());
     Q_ASSERT(sourceIndex.model() == m_proxyModel->sourceModel());
-    
-
-    auto sourceParentIndex = sourceIndex.parent();
-    QModelIndex matchingProxyParentIndex = m_proxyModel->mapFromSource(sourceParentIndex);
-    while (!matchingProxyParentIndex.isValid()) {
-        sourceParentIndex = sourceParentIndex.parent();
-        matchingProxyParentIndex = m_proxyModel->mapFromSource(sourceParentIndex);
-        if (!sourceParentIndex.isValid()) {
-            break;
-        }
-    }
-    return m_proxyIndexHash.at(matchingProxyParentIndex);
+    return getProxyNearestIndex(sourceIndex.parent());
 }
 
-std::vector<std::shared_ptr<ProxyIndexInfo>> ItemFilterProxyModelPrivate::getProxyNearestChildrenIndexes(const QModelIndex &parentIndex) const
+std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyNearestIndex(QModelIndex sourceIndex) const
+{
+    Q_ASSERT(sourceIndex.isValid());
+    Q_ASSERT(sourceIndex.model() == m_proxyModel->sourceModel());
+    const auto end = m_sourceIndexHash.end();
+
+    auto it = m_sourceIndexHash.find(sourceIndex);
+    while (it == end && sourceIndex.isValid()) {
+        sourceIndex = sourceIndex.parent();
+        it = m_sourceIndexHash.find(sourceIndex);
+    }
+    Q_ASSERT(it != end);
+    return *it;
+}
+
+std::vector<std::shared_ptr<ProxyIndexInfo>> ItemFilterProxyModelPrivate::getProxyChildrenIndexes(const QModelIndex &sourceParentIndex) const
 {
     const auto sourceModel = m_proxyModel->sourceModel();
-    const auto column = parentIndex.column() >= 0 ? parentIndex.column() : 0;
+    Q_ASSERT(sourceParentIndex.model() == sourceModel);
+    const auto column = sourceParentIndex.column() >= 0 ? sourceParentIndex.column() : 0;
     const auto sourceMappingEnd = m_sourceIndexHash.end();
 
     std::vector<std::shared_ptr<ProxyIndexInfo>> visibleChildren;
-    const auto childrenCount = sourceModel->rowCount(parentIndex);
+    const auto childrenCount = sourceModel->rowCount(sourceParentIndex);
     for (int row = 0; row < childrenCount; ++row) {
-        const auto childSourceIndex = sourceModel->index(row, column, parentIndex);
+        const auto childSourceIndex = sourceModel->index(row, column, sourceParentIndex);
         const auto it = m_sourceIndexHash.find(childSourceIndex);
         if (it == sourceMappingEnd) {
             // Child is not visible, search recursively in child's children for any visible index
-            auto recursiveVisibleChildren = getProxyNearestChildrenIndexes(childSourceIndex);
+            auto recursiveVisibleChildren = getProxyChildrenIndexes(childSourceIndex);
             if (recursiveVisibleChildren.empty()) {
                 continue;
             }
@@ -397,21 +412,14 @@ void ItemFilterProxyModelPrivate::moveRowsImpl(const std::shared_ptr<ProxyIndexI
     Q_ASSERT(firstRow >= 0 && firstRow <= lastRow);
     Q_ASSERT(destinationRow >= 0);
     Q_ASSERT(destinationInfo);
-    auto& source = parentProxyInfo->m_children;
     auto& destination = destinationInfo->m_children;
     const auto& destinationIndex = destinationInfo->m_index;
-
-    const auto columnCount = parentProxyInfo->columnCount();
-    for(int col = 0; col < columnCount; ++col) {
-        const auto sourceColumnIt = parentProxyInfo->columnBegin(col);
-        const auto sourceFirstRowIt = sourceColumnIt + firstRow;
-        const auto sourceLastRowIt = sourceColumnIt + lastRow;
-        const auto destIt = destination.begin() + destinationRow;
-
-        const auto insertedChildren = destinationInfo->m_children.insert(destIt,
-        std::make_move_iterator(sourceFirstRowIt), std::make_move_iterator(sourceLastRowIt + 1));
-        // TODO finish
-    } 
+    
+    const auto [ rowBeginIt, rowEndIt ] = parentProxyInfo->childRange(firstRow, lastRow);
+    const auto destIt = destinationInfo->childIt(destinationRow);
+    destinationInfo->m_children.insert(destIt, std::make_move_iterator(rowBeginIt), std::make_move_iterator(rowEndIt));
+    parentProxyInfo->m_children.erase(rowBeginIt, rowEndIt);
+    
     updateChildrenRows(parentProxyInfo);
     updateChildrenRows(destinationInfo);
 }

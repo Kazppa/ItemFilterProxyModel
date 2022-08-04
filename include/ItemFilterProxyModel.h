@@ -45,15 +45,15 @@ protected:
     void invalidateRowsFilter();
 
 private:
-    void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
 
     /*
-    * Bunch of callbacks to handle source model modifications
+    * Callbacks to handle source model's modifications
     */
+    void sourceDataChanged(const QModelIndex &sourceLeft, const QModelIndex &sourceRight, const QList<int>& roles = {});
     void onRowsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-    void onRowsAboutToBeInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
     void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd,
         const QModelIndex &destinationParent, int destinationRow);
+    void onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
 
     QModelIndex createIndexImpl(int row, int col, quintptr internalId) const { return createIndex(row, col, internalId); };
 

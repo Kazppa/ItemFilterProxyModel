@@ -27,7 +27,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     cat.setEnabled(QtMsgType::QtCriticalMsg, true);
     cat.setEnabled(QtMsgType::QtFatalMsg, true);
     cat.setEnabled(QtMsgType::QtInfoMsg, true);
-    auto proxyTester = new QAbstractItemModelTester(m_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
+    // auto proxyTester = new QAbstractItemModelTester(m_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 #endif
 
     m_sourceTreeView = new ExampleTreeView();

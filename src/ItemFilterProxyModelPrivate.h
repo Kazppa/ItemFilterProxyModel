@@ -66,18 +66,21 @@ public:
 
     QModelIndex mapToSource(const QModelIndex &proxyIndex) const;
 
-    std::vector<std::pair<QModelIndex, QModelIndex>> mapFromSourceRange(
+    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> mapFromSourceRange(
         const QModelIndex &sourceLeft, const QModelIndex& sourceRight, const SelectionParameters parameters = None) const;
 
-    std::vector<std::pair<QModelIndex, QModelIndex>> mapFromSourceRange(
+    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> mapFromSourceRange(
         const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const SelectionParameters parameters = None) const;
 
-    // Return the proxy index matching the sourceIndex : if the latter is not visible, search recursively a visible parent
-    std::shared_ptr<ProxyIndexInfo> getProxyNearestParentIndex(const QModelIndex &sourceIndex) const;
+    // Return the proxy index matching the source index's parent : if the latter is not visible, search recursively a visible parent
+    std::shared_ptr<ProxyIndexInfo> getProxyParentIndex(const QModelIndex &sourceIndex) const;
+
+    // Return the first visible proxy index for the givne source index, searching recursively in parents
+    std::shared_ptr<ProxyIndexInfo> getProxyNearestIndex(QModelIndex sourceIndex) const;
 
     // For each source child index, return the first visible index
     // if the child index is not visible, search recursively all his visible children
-    std::vector<std::shared_ptr<ProxyIndexInfo>> getProxyNearestChildrenIndexes(const QModelIndex &parentIndex) const;
+    std::vector<std::shared_ptr<ProxyIndexInfo>> getProxyChildrenIndexes(const QModelIndex &sourceParentIndex) const;
 
     struct InsertInfo
     {
@@ -98,7 +101,7 @@ public:
 
     // Update children's rows (used after an insertion or a suppression of a child)
     void updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo);
-
+    
     // Recalculate the proxy mapping (used when a source model reset happens)
     void resetProxyIndexes();
 

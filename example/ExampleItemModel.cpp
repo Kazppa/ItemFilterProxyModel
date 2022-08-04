@@ -9,7 +9,7 @@ namespace
     QStandardItem * createItem(const QString &text)
     {
         auto item = new QStandardItem(text);
-        // item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
+        item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
         return item;
     }
 }
