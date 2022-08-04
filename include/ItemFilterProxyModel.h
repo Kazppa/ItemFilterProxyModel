@@ -7,7 +7,6 @@
 namespace kaz
 {
 
-class ProxyIndexInfo;
 class ItemFilterProxyModelPrivate;
 
 
@@ -45,7 +44,6 @@ protected:
     void invalidateRowsFilter();
 
 private:
-
     /*
     * Callbacks to handle source model's modifications
     */
@@ -55,7 +53,7 @@ private:
         const QModelIndex &destinationParent, int destinationRow);
     void onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
 
-    QModelIndex createIndexImpl(int row, int col, quintptr internalId) const { return createIndex(row, col, internalId); };
+    QModelIndex createIndexImpl(int row, int col, quintptr internalId) const;
 
     friend ItemFilterProxyModelPrivate;
 

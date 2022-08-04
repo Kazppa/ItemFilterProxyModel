@@ -73,7 +73,9 @@ namespace kaz
             bool operator<=(const ColumnIterator& other) const;
             bool operator>=(const ColumnIterator& other) const;
 
-            operator pointer() const { return m_it; }
+            pointer base() const noexcept {return m_it; }
+
+            operator pointer() const noexcept { return m_it; }
 
             friend ProxyIndexInfo;
 

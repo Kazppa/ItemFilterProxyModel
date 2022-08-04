@@ -292,9 +292,6 @@ ItemFilterProxyModelPrivate::InsertInfo ItemFilterProxyModelPrivate::searchInser
 
     const auto beginIt = proxyInfo->columnBegin();
     const auto endIt = proxyInfo->columnEnd();
-    for (auto d = beginIt; d != endIt; ++d) {
-        qDebug() << "oh";
-    }
     const auto it = std::lower_bound(beginIt, endIt, sourceIndex, SourceModelIndexLessComparator{});
     return InsertInfo {
         it == endIt ? proxyInfo->rowCount() : (*it)->row(),
@@ -416,6 +413,10 @@ void ItemFilterProxyModelPrivate::moveRowsImpl(const std::shared_ptr<ProxyIndexI
     const auto& destinationIndex = destinationInfo->m_index;
     
     const auto [ rowBeginIt, rowEndIt ] = parentProxyInfo->childRange(firstRow, lastRow);
+    for (auto it = rowBeginIt; it != rowEndIt; ++it) {
+        // Change parent
+        (*it)->m_parent = destinationInfo;
+    }
     const auto destIt = destinationInfo->childIt(destinationRow);
     destinationInfo->m_children.insert(destIt, std::make_move_iterator(rowBeginIt), std::make_move_iterator(rowEndIt));
     parentProxyInfo->m_children.erase(rowBeginIt, rowEndIt);
@@ -483,4 +484,43 @@ void ItemFilterProxyModelPrivate::fillChildrenIndexesRecursively(const QModelInd
             }
         }
     }
+}
+
+std::vector<QModelIndex> ItemFilterProxyModelPrivate::getSourceVisibleChildren(const QModelIndex &sourceParentIndex) const
+{
+    const auto rowCount = m_proxyModel->sourceModel()->rowCount(sourceParentIndex);
+    if (rowCount == 0) {
+        return {};
+    }
+
+    return getSourceVisibleChildren(sourceParentIndex, 0, rowCount - 1);
+}
+
+std::vector<QModelIndex> ItemFilterProxyModelPrivate::getSourceVisibleChildren(const QModelIndex &sourceParentIndex, int firstRow, int lastRow) const
+{
+    auto sourceModel = m_proxyModel->sourceModel();
+    Q_ASSERT(!sourceParentIndex.isValid() || sourceParentIndex.model() == sourceModel);
+
+    std::vector<QModelIndex> visibleIndexes;
+    visibleIndexes.reserve(lastRow - firstRow);
+    for (int row = firstRow; row <= lastRow; ++row) {
+        const auto childIndex = sourceModel->index(row, 0, sourceParentIndex);
+        const auto isChildVisible = m_proxyModel->filterAcceptsRow(row, sourceParentIndex);
+        if (isChildVisible) {
+            visibleIndexes.push_back(childIndex);
+        }   
+        else {
+            // Search recursively in children
+            auto visibleChildren = getSourceVisibleChildren(childIndex);
+            if (!visibleChildren.empty()) {
+                if (visibleIndexes.empty()) {
+                    visibleIndexes = std::move(visibleChildren);
+                }
+                else {
+                    visibleIndexes.insert(visibleIndexes.end(), visibleChildren.begin(), visibleChildren.end());
+                }
+            }
+        }
+    }
+    return visibleIndexes;
 }

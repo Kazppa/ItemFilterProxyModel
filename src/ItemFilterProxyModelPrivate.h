@@ -108,6 +108,10 @@ public:
     // Recursively insert proxy indexes mapping based on sourceModel()'s indexes
     void fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo);
 
+    // For each child, search recursively the first one visible (to get all direct children in the proxy model)
+    std::vector<QModelIndex> getSourceVisibleChildren(const QModelIndex &sourceParentIndex) const;
+    std::vector<QModelIndex> getSourceVisibleChildren(const QModelIndex &sourceParentIndex, int firstRow, int lastRow) const;
+
     // Mapping source index -> proxy index
     QHash<QPersistentModelIndex, std::shared_ptr<ProxyIndexInfo>> m_sourceIndexHash;
     // Mapping proxy index
