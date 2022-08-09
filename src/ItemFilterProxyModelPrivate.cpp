@@ -77,7 +77,8 @@ QModelIndex ItemFilterProxyModelPrivate::index(int row,int column, const QModelI
         return {};
     }
     
-    const auto child = it->second->childAt(row, column);
+    const auto& parentInfo = it->second;
+    const auto child = parentInfo->childAt(row, column);
     if (!child) {
         return {};
     }
@@ -313,28 +314,23 @@ void ItemFilterProxyModelPrivate::updateChildrenRows(const std::shared_ptr<Proxy
         const auto childColumn = childIndex.column();
         bool updatedRequired = false;
         if (childColumn != col) {
-            // Found the next column
-            Q_ASSERT(childColumn == col + 1);
+            Q_ASSERT(childColumn == 0);
+            // Found the next row
             col = childColumn;
-            // First row of the column
-            expectedRow = 0;
+            ++expectedRow;
         }
         if (childRow != expectedRow) {
             updatedRequired = true;
         }
 
         if (updatedRequired) {
+            // Remove previous mapping
             m_proxyIndexHash.erase(childIndex);
-            // New proxy mapping
             childIndex = createIndex(expectedRow, col, childIndex.internalId());
-#ifdef QT_DEBUG
-            const auto it = m_proxyIndexHash.emplace(childIndex, child);
-            Q_ASSERT(it.second);
-#else
-            m_proxyIndexHash.emplace(childIndex, child);
-#endif
+            // New proxy mapping, not using insert() or emplace() because it could already exists
+            m_proxyIndexHash[childIndex] = child;
         }
-        ++expectedRow;
+        ++col;
     }
 }
 
@@ -372,33 +368,30 @@ void ItemFilterProxyModelPrivate::eraseRowsImpl(const std::shared_ptr<ProxyIndex
 {
     Q_ASSERT(!parentProxyInfo->m_index.isValid() || parentProxyInfo->m_index.model() == m_proxyModel);
     
+    const auto [childBegin, childEnd] = parentProxyInfo->childRange(firstRow, lastRow);
     QStack<std::shared_ptr<ProxyIndexInfo>> stack;
-    auto& parentChildren = parentProxyInfo->m_children;
-    const auto end = parentChildren.end();
-    parentChildren.erase(std::remove_if(parentChildren.begin(), end, [&](const std::shared_ptr<ProxyIndexInfo>& proxyInfo) {
-        const auto row = proxyInfo->m_index.row();
-        if (row < firstRow || row > lastRow) {
-            return false;
-        }
+    std::for_each(childBegin, childEnd, [&, this](const std::shared_ptr<ProxyIndexInfo>& proxyInfo) {
         m_sourceIndexHash.remove(proxyInfo->m_source);
         m_proxyIndexHash.erase(proxyInfo->m_index);
         for (auto& child : proxyInfo->m_children) {
+            child->m_parent.reset();
             stack.push(std::move(child));
         }
-        return true;
-    }), end);
+    });
 
     while (!stack.empty()) {
-        const auto parentInfo = std::move(stack.top());
-        stack.pop();
+        const auto parentInfo = std::move(stack.pop());
 
         m_sourceIndexHash.remove(parentInfo->m_source);
         m_proxyIndexHash.erase(parentInfo->m_index);
         for (auto& child : parentInfo->m_children) {
+            child->m_parent.reset();
             stack.push(std::move(child));
         }
         parentInfo->m_children.clear();
     }
+
+    parentProxyInfo->m_children.erase(childBegin, childEnd);
     updateChildrenRows(parentProxyInfo);
 }
 

@@ -103,7 +103,7 @@ ProxyIndexInfo::childRange(const int firstRow, const int lastRow) const
     const auto begin = m_children.begin();
     return std::make_pair(
         begin + (firstRow * colCount),
-        begin + ((lastRow * colCount) + 1)
+        begin + ((lastRow + 1) * colCount)
     );
 }
 

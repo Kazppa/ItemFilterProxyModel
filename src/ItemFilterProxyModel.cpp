@@ -217,7 +217,7 @@ void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int s
 
             proxyInfo->m_index = createIndex(newRow++, previousIndex.column(), previousIndex.internalId());
             m_impl->m_sourceIndexHash[proxyInfo->m_source] = proxyInfo;
-            m_impl->m_proxyIndexHash.emplace(proxyInfo->m_index, proxyInfo);
+            m_impl->m_proxyIndexHash[proxyInfo->m_index] = proxyInfo;
         }
     }
 
@@ -229,9 +229,10 @@ void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int s
     std::move_backward(proxyIt, proxyIt + childrenCount, parentChildren.end() - 1);
 
     for (const auto &idx : sourceVisibleIndexes) {
+        const auto sourceRow = idx.row();
         for (int col = 0; col < columnCount; ++col) {
-            const auto sourceIndex = sourceModel->index(idx.row(), col, idx.parent());
-            auto proxyIndex = createIndex(proxyRow++, col, sourceIndex.internalId());
+            const auto sourceIndex = sourceModel->index(sourceRow, col, sourceParent);
+            auto proxyIndex = createIndex(proxyRow, col, sourceIndex.internalId());
             auto proxyInfo = std::make_shared<ProxyIndexInfo>(sourceIndex, proxyIndex, proxyParent);
             m_impl->m_sourceIndexHash.emplace(sourceIndex, proxyInfo);
             m_impl->m_proxyIndexHash.emplace(proxyIndex, proxyInfo);
@@ -241,6 +242,7 @@ void ItemFilterProxyModel::onRowsInserted(const QModelIndex& sourceParent, int s
             // Insert visible source indexes aswell
             m_impl->fillChildrenIndexesRecursively(sourceIndex, proxyInfo);
         }
+        ++proxyRow;
     }
 
     endInsertRows();
