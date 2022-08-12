@@ -39,11 +39,12 @@ public:
 
     // Return false if the row must be hidden by the proxy model
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const = 0;
-
-protected:        
+     
     void invalidateRowsFilter();
 
 private:
+    QModelIndex createIndexImpl(int row, int col, quintptr internalId) const;
+
     /*
     * Callbacks to handle source model's modifications
     */
@@ -52,8 +53,11 @@ private:
     void onRowsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd,
         const QModelIndex &destinationParent, int destinationRow);
     void onRowsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
-
-    QModelIndex createIndexImpl(int row, int col, quintptr internalId) const;
+        
+    void onColumnsAboutToBeRemoved(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
+    void onColumnsAboutToBeMoved(const QModelIndex &sourceParent, int sourceStart, int sourceEnd,
+        const QModelIndex &sourceDestinationParent, int sourceDestinationColumn);
+    void onColumnsInserted(const QModelIndex& sourceParent, int sourceFirst, int sourceLast);
 
     friend ItemFilterProxyModelPrivate;
 

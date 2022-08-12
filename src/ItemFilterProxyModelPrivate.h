@@ -47,7 +47,6 @@ public:
     };
     Q_DECLARE_FLAGS(SelectionParameters, SelectionParameter);
 
-public:
     explicit ItemFilterProxyModelPrivate(ItemFilterProxyModel *proxyModel);
 
     QModelIndex createIndex(int row, int col, quintptr internalId) const;

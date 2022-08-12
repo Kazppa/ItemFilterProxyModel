@@ -27,6 +27,10 @@ add_library(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets)
 
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+    $<$<CONFIG:Debug>:KAZ_DEBUG>)
+
 add_subdirectory(example)
 
 enable_testing()

@@ -124,3 +124,36 @@ std::pair<int, int> ProxyIndexInfo::rowColCount() const
     const auto& idx = m_children.back()->m_index;
     return std::make_pair(idx.row() + 1, idx.column() + 1);
 }
+
+bool ProxyIndexInfo::assertChildrenAreValid(bool recursively) const
+{
+    if (m_children.empty()) {
+        return true;
+    }
+
+    const auto [rowCount, colCount] = rowColCount();
+    int expectedRow = 0, expectedCol = 0;
+    for (const auto& child : m_children) {
+        if(child->row() != expectedRow) {
+            Q_ASSERT(false);
+            return false;
+        }
+        if (child->column() != expectedCol) {
+            Q_ASSERT(false);
+            return false;
+        }
+        if (recursively) {
+            if (!child->assertChildrenAreValid(true)) {
+                return false;
+            }
+        }
+
+        expectedCol = (expectedCol + 1) % colCount;
+        if (expectedCol == 0) {
+            // next row
+            expectedRow = (expectedRow + 1) % rowCount;
+        }
+    }
+
+    return true;
+}

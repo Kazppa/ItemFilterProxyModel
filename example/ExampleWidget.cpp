@@ -20,15 +20,14 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     m_sourceModel = new ExampleItemModel(this);
     m_proxyModel = new ExampleItemFilterProxyModel(this);
     m_proxyModel->setSourceModel(m_sourceModel);
-#ifdef QT_DEBUG
+
     QLoggingCategory cat("qt.modeltest");
     cat.setEnabled(QtMsgType::QtDebugMsg, true);
     cat.setEnabled(QtMsgType::QtWarningMsg, true);
     cat.setEnabled(QtMsgType::QtCriticalMsg, true);
     cat.setEnabled(QtMsgType::QtFatalMsg, true);
     cat.setEnabled(QtMsgType::QtInfoMsg, true);
-    // auto proxyTester = new QAbstractItemModelTester(m_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
-#endif
+    auto proxyTester = new QAbstractItemModelTester(m_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 
     m_sourceTreeView = new ExampleTreeView();
     m_sourceTreeView->setModel(m_sourceModel);
@@ -76,6 +75,9 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     QTimer::singleShot(1, [this] {
         m_proxyTreeView->resizeColumnsToContents();
         m_sourceTreeView->resizeColumnsToContents();
+
+        const auto idx = m_sourceTreeView->searchTextIndex(QStringLiteral("A17"));
+        m_sourceModel->setData(idx, QStringLiteral("A17_"), Qt::DisplayRole);
     });
 }
 

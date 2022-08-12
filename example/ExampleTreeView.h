@@ -17,6 +17,8 @@ public:
 
     void onContextMenuRequested(const QPoint& pos);
 
+    QModelIndex searchTextIndex(const QString &text) const;
+
 protected:
     void currentChanged(const QModelIndex &, const QModelIndex&) override;
 

@@ -118,6 +118,9 @@ namespace kaz
 
         std::pair<int, int> rowColCount() const;
 
+        // Debugging purpose only
+        bool assertChildrenAreValid(bool recursively = false) const;  
+
         const QModelIndex& parentIndex() const { return m_parent->m_index; }
 
         int row() const noexcept { return m_index.row(); }
