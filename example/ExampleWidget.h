@@ -19,11 +19,7 @@ public:
 private:
     void onSyncViewsCheckBox(bool isChecked);
 
-    void onSliderPressed();
-
-    void onSliderReleased();
-
-    void onViewScrolled(int newValue);
+    void onViewScrollActionTriggered(int action);
 
     void onViewIndexChanged(const QModelIndex &newIndex);
 

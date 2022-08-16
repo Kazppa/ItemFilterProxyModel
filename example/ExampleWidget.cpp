@@ -22,11 +22,9 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     m_proxyModel->setSourceModel(m_sourceModel);
 
     QLoggingCategory cat("qt.modeltest");
-    cat.setEnabled(QtMsgType::QtDebugMsg, true);
-    cat.setEnabled(QtMsgType::QtWarningMsg, true);
-    cat.setEnabled(QtMsgType::QtCriticalMsg, true);
-    cat.setEnabled(QtMsgType::QtFatalMsg, true);
-    cat.setEnabled(QtMsgType::QtInfoMsg, true);
+    for (const auto msgType : { QtDebugMsg, QtWarningMsg, QtCriticalMsg, QtFatalMsg, QtInfoMsg }) {
+        cat.setEnabled(msgType, true);
+    }
     auto proxyTester = new QAbstractItemModelTester(m_proxyModel, QAbstractItemModelTester::FailureReportingMode::Fatal, this);
 
     m_sourceTreeView = new ExampleTreeView();
@@ -39,11 +37,11 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
 
     m_syncViewsCheckBox = new QCheckBox(tr("Activate QTreeViews synchronization"));
     m_filterLineEdit = new QLineEdit;
-    m_filterLineEdit->setPlaceholderText(tr("A, A1, F5"));
+    m_filterLineEdit->setPlaceholderText(QStringLiteral("A, A1, F5"));
 
     auto titleLayout = new QHBoxLayout;
-    titleLayout->addWidget(new QLabel(QStringLiteral("Source model")), 0, Qt::AlignHCenter);
-    titleLayout->addWidget(new QLabel(QStringLiteral("Filtered model")), 0, Qt::AlignHCenter);
+    titleLayout->addWidget(new QLabel(tr("Source model")), 0, Qt::AlignHCenter);
+    titleLayout->addWidget(new QLabel(tr("Filtered model")), 0, Qt::AlignHCenter);
 
     auto splitter = new QSplitter;
     splitter->addWidget(m_sourceTreeView);
@@ -87,11 +85,8 @@ void ExampleWidget::onSyncViewsCheckBox(bool isChecked)
     {
         connect(m_sourceTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
         connect(m_proxyTreeView, &ExampleTreeView::currentIndexChanged, this, &ExampleWidget::onViewIndexChanged);
-
-        connect(m_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
-        connect(m_sourceTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
-        connect(m_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderPressed, this, &ExampleWidget::onSliderPressed);
-        connect(m_proxyTreeView->verticalScrollBar(), &QScrollBar::sliderReleased, this, &ExampleWidget::onSliderReleased);
+        connect(m_sourceTreeView->verticalScrollBar(), &QScrollBar::actionTriggered, this, &ExampleWidget::onViewScrollActionTriggered);
+        connect(m_proxyTreeView->verticalScrollBar(), &QScrollBar::actionTriggered, this, &ExampleWidget::onViewScrollActionTriggered);
     }
     else
     {
@@ -102,25 +97,17 @@ void ExampleWidget::onSyncViewsCheckBox(bool isChecked)
     }
 }
 
-void ExampleWidget::onSliderPressed()
+void ExampleWidget::onViewScrollActionTriggered(int action)
 {
-    auto scrollBar = static_cast<QScrollBar *>(sender());
-    connect(scrollBar, &QScrollBar::valueChanged, this, &ExampleWidget::onViewScrolled);
+    if (action != QAbstractSlider::SliderMove) {
+        return;
+    }
     
-}
-
-void ExampleWidget::onSliderReleased()
-{
-    auto scrollBar = static_cast<QScrollBar *>(sender());
-    disconnect(scrollBar, &QScrollBar::valueChanged, this, &ExampleWidget::onViewScrolled);
-}
-
-void ExampleWidget::onViewScrolled(int newValue)
-{
     const auto basicViewScrollBar = m_sourceTreeView->verticalScrollBar();
     const auto restructuredViewScrollBar = m_proxyTreeView->verticalScrollBar();
     const auto fromScrollBar = sender() == basicViewScrollBar ? basicViewScrollBar : restructuredViewScrollBar;
     const auto toScrollBar = fromScrollBar == basicViewScrollBar ? restructuredViewScrollBar : basicViewScrollBar;
+    const auto newValue = fromScrollBar->value();
 
     // Calculate the relative value to get a percent of the range
     const auto fromMin = fromScrollBar->minimum();
