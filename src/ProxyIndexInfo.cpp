@@ -12,6 +12,7 @@ namespace
     make_visitor(Callables...) -> make_visitor<Callables...>;
 }
 
+
 ProxyIndexInfo::ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex,
     const std::shared_ptr<ProxyIndexInfo> &proxyParentIndex) :
     m_source(sourceIndex),
@@ -26,6 +27,13 @@ ProxyIndexInfo::ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex
         Q_ASSERT(proxyIndex.model() == proxyParentIndex->m_index.model());
     }
 #endif
+}
+
+ProxyIndexInfo::~ProxyIndexInfo()
+{
+    for (auto& child : m_children) {
+        child->m_parent.reset();
+    }
 }
 
 ProxyIndexInfo::ColumnIterator ProxyIndexInfo::columnBegin(int column) const
@@ -48,14 +56,13 @@ std::pair<ProxyIndexInfo::ColumnIterator, ProxyIndexInfo::ColumnIterator> ProxyI
 
 ProxyIndexInfo::ChildrenList::const_iterator ProxyIndexInfo::childIt(int row, int column) const
 {
-#ifdef QT_DEBUG
     const auto [ rowCount, colCount ] = rowColCount();
-    Q_ASSERT(row >= 0 && row < rowCount);
-    Q_ASSERT(column >= 0 && column < colCount);
-#else
-    const auto colCount = columnCount();
-#endif
-
+    Q_ASSERT(row >= 0);
+    if (row >= rowCount) {
+        return m_children.end();
+    }
+    
+    Q_ASSERT(column >= 0 && column <= colCount);
     return m_children.begin() + (row * colCount) + column;
 }
 
@@ -89,8 +96,8 @@ int ProxyIndexInfo::rowCount() const
     return m_children.back()->row() + 1;
 }
 
-std::pair<ProxyIndexInfo::ChildrenList::const_iterator, ProxyIndexInfo::ChildrenList::const_iterator>
-ProxyIndexInfo::childRange(const int firstRow, const int lastRow) const
+std::pair<ProxyIndexInfo::ChildrenList::iterator, ProxyIndexInfo::ChildrenList::iterator>
+ProxyIndexInfo::childRange(const int firstRow, const int lastRow)
 {
 #ifdef QT_DEBUG
     const auto [ rowCount, colCount ] = rowColCount();

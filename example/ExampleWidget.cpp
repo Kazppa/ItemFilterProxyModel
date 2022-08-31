@@ -75,7 +75,7 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
         m_sourceTreeView->resizeColumnsToContents();
 
         const auto idx = m_sourceTreeView->searchTextIndex(QStringLiteral("A17"));
-        m_sourceModel->setData(idx, QStringLiteral("A17_"), Qt::DisplayRole);
+        //m_sourceModel->setData(idx, QStringLiteral("A17_"), Qt::DisplayRole);
     });
 }
 

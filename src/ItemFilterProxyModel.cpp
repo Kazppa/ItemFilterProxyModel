@@ -9,6 +9,7 @@
 
 using namespace kaz;
 
+
 ItemFilterProxyModel::ItemFilterProxyModel(QObject *parent) :
     QAbstractProxyModel(parent)
 {
@@ -158,13 +159,14 @@ void ItemFilterProxyModel::sourceDataChanged(const QModelIndex &sourceLeft, cons
             endInsertRows();
 
             for (const auto& newProxyIndexInfo : newRows) {
-                const auto childProxyIndexes = m_impl->getProxyChildrenIndexes(newProxyIndexInfo->m_source);
-                // TODO move children by "range" instead of one by one
-                for (const auto& childProxyIndex : childProxyIndexes) {
-                    const auto fromRow = childProxyIndex->row();
+                const auto childProxyRanges = m_impl->splitInRowRanges(m_impl->getProxyChildrenIndexes(newProxyIndexInfo->m_source));
+                for (const auto& [firstIndexInfo, lastIndexInfo] : childProxyRanges) {
+                    Q_ASSERT(firstIndexInfo->m_parent == lastIndexInfo->m_parent);
+                    const auto fromFirstRow = firstIndexInfo->row();
+                    const auto fromLastRow = lastIndexInfo->row();
                     const auto destRow = newProxyIndexInfo->rowCount();
-                    beginMoveRows(childProxyIndex->parentIndex(), fromRow, fromRow, newProxyIndexInfo->m_index, destRow);
-                    m_impl->moveRowsImpl(childProxyIndex->m_parent, fromRow, fromRow, newProxyIndexInfo, destRow);
+                    beginMoveRows(firstIndexInfo->parentIndex(), fromFirstRow, fromLastRow, newProxyIndexInfo->m_index, destRow);
+                    m_impl->moveRowsImpl(firstIndexInfo->m_parent, fromFirstRow, fromLastRow, newProxyIndexInfo, destRow);
                     endMoveRows();
                 }
             }

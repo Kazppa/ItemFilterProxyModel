@@ -103,12 +103,15 @@ QModelIndex ItemFilterProxyModelPrivate::index(int row,int column, const QModelI
         Q_ASSERT(false);
         return {};
     }
-    
+
+#ifdef KAZ_DEBUG
+        const auto parentTxt = parent.data().toString();
+#endif
+
     const auto& parentInfo = it->second;
     const auto child = parentInfo->childAt(row, column);
     if (!child) {
 #ifdef KAZ_DEBUG
-        const auto parentTxt = parent.data().toString();
         Q_ASSERT(false);
 #endif
         return {};
@@ -121,7 +124,7 @@ QModelIndex ItemFilterProxyModelPrivate::parent(const QModelIndex &childIndex) c
     if (!childIndex.isValid()) {
         return {};
     }
-    
+
     const auto it = m_proxyIndexHash.find(childIndex);
     if(it == m_proxyIndexHash.end()) {
  #ifdef KAZ_DEBUG
@@ -134,7 +137,7 @@ QModelIndex ItemFilterProxyModelPrivate::parent(const QModelIndex &childIndex) c
         Q_ASSERT(false);
         return {};
     }
-    
+
     return it->second->m_parent->m_index;
 }
 
@@ -145,6 +148,7 @@ int ItemFilterProxyModelPrivate::rowCount(const QModelIndex &parentIndex) const
         Q_ASSERT(false);
         return 0;
     }
+
     return it->second->rowCount();
 }
 
@@ -406,7 +410,6 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::appendSourceIndexIn
     return child;
 }
 
-// TODO Fixme
 void ItemFilterProxyModelPrivate::eraseRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow)
 {
     Q_ASSERT(!parentProxyInfo->m_index.isValid() || parentProxyInfo->m_index.model() == m_proxyModel);
@@ -445,20 +448,21 @@ void ItemFilterProxyModelPrivate::moveRowsImpl(const std::shared_ptr<ProxyIndexI
     Q_ASSERT(firstRow >= 0 && firstRow <= lastRow);
     Q_ASSERT(destinationRow >= 0);
     Q_ASSERT(destinationInfo);
-    auto& destination = destinationInfo->m_children;
-    const auto& destinationIndex = destinationInfo->m_index;
-    
+
+    auto parentChildrenBegin = parentProxyInfo->m_children.begin();
     const auto [ rowBeginIt, rowEndIt ] = parentProxyInfo->childRange(firstRow, lastRow);
-    for (auto it = rowBeginIt; it != rowEndIt; ++it) {
-        // Change parent
-        (*it)->m_parent = destinationInfo;
-    }
-    const auto destIt = destinationInfo->childIt(destinationRow);
-    destinationInfo->m_children.insert(destIt, std::make_move_iterator(rowBeginIt), std::make_move_iterator(rowEndIt));
+    const auto movedIndexCount = std::distance(rowBeginIt, rowEndIt);
+    auto destIt = destinationInfo->childIt(destinationRow);
+    destIt = destinationInfo->m_children.insert(destIt, std::make_move_iterator(rowBeginIt), std::make_move_iterator(rowEndIt));
     parentProxyInfo->m_children.erase(rowBeginIt, rowEndIt);
+    // Assign new parent
+    for (int i = 0; i < movedIndexCount; ++i) {
+        (**(destIt + i)).m_parent = destinationInfo;
+    }
+
     
-    updateChildrenRows(parentProxyInfo);
     updateChildrenRows(destinationInfo);
+    updateChildrenRows(parentProxyInfo);
 }
 
 
@@ -559,4 +563,44 @@ std::vector<QModelIndex> ItemFilterProxyModelPrivate::getSourceVisibleChildren(c
         }
     }
     return visibleIndexes;
+}
+
+std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>>
+ItemFilterProxyModelPrivate::splitInRowRanges(ProxyIndexInfo::ChildrenList&& indexes) const
+{
+    if (indexes.empty()) {
+        return {};
+    }
+
+    std::sort(indexes.begin(), indexes.end(), [](const std::shared_ptr<ProxyIndexInfo>& left, const std::shared_ptr<ProxyIndexInfo>& right) {
+        const auto& leftParent = left->m_parent;
+        const auto& rightParent = right->m_parent;
+        if (leftParent == rightParent) {
+            // same parent, compare rows
+            return left->row() < right->row();
+        }
+        // Different parent, arbitrary ordering based on pointer's addresses
+        return leftParent < rightParent;
+    });
+
+    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ranges;
+    std::shared_ptr<ProxyIndexInfo> beginRange = std::move(indexes.front());
+    auto previousIndex = beginRange;
+    for (std::size_t size = indexes.size(), i = 1; i < size; ++i) {
+        const auto& index = indexes[i];
+        int expectedRow = previousIndex->row() + 1;
+        if (index->m_parent == beginRange->m_parent && index->row() == expectedRow) {
+            // Keep going in the same range
+            previousIndex = std::move(index);
+            continue;
+        }
+        else {
+            // End of current range
+            ranges.push_back(std::make_pair(std::move(beginRange), std::move(previousIndex)));
+            beginRange = index;
+            previousIndex = std::move(index);
+        }
+    }
+    ranges.push_back(std::make_pair(std::move(beginRange), std::move(previousIndex)));
+    return ranges;
 }

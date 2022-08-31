@@ -92,6 +92,8 @@ namespace kaz
 
         ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParentIndex);
 
+        ~ProxyIndexInfo();
+
         // Return an iterator to the first row of the given column
         ColumnIterator columnBegin(int column = 0) const;
         
@@ -107,9 +109,7 @@ namespace kaz
         std::shared_ptr<ProxyIndexInfo> childAt(const QModelIndex &idx) const;
 
         // return a pair of iterator [begin, end[
-        std::pair<ChildrenList::const_iterator, ChildrenList::const_iterator> childRange(const int firstRow, const int lastRow) const;
-
-        ChildrenList::const_iterator getRowIt(int row) const noexcept;
+        std::pair<ChildrenList::iterator, ChildrenList::iterator> childRange(const int firstRow, const int lastRow);
 
         // Return the number of rows
         int rowCount() const;

@@ -111,6 +111,10 @@ public:
     std::vector<QModelIndex> getSourceVisibleChildren(const QModelIndex &sourceParentIndex) const;
     std::vector<QModelIndex> getSourceVisibleChildren(const QModelIndex &sourceParentIndex, int firstRow, int lastRow) const;
 
+    // Return a list of pairs {first row, last row} of range, sorted by parents
+    // For example : [{0,0}, {1,1}, {2,0}, {4,0}, {5,0}, {6,1}, {8,0}] returns [{ {0,0},{2,0} }, { {4,0}, {6,1} }, { {8,0}, {8,0} }]
+    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> splitInRowRanges(ProxyIndexInfo::ChildrenList&& indexes) const;
+
     // Mapping source index -> proxy index
     QHash<QPersistentModelIndex, std::shared_ptr<ProxyIndexInfo>> m_sourceIndexHash;
     // Mapping proxy index
