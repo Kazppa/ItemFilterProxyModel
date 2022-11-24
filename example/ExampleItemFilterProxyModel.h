@@ -1,7 +1,7 @@
 #ifndef ITEMFILTERPROXYMODEL_EXAMPLEFILTERPROXYMODEL_H
 #define ITEMFILTERPROXYMODEL_EXAMPLEFILTERPROXYMODEL_H
 
-#include "ItemFilterProxyModel.h"
+#include "ItemFilterProxyModel/ItemFilterProxyModel.h"
 
 class ExampleItemFilterProxyModel : public kaz::ItemFilterProxyModel
 {

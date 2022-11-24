@@ -38,7 +38,7 @@ void ColumnIteratorTest::testOperators()
         for (int col = 0; col < columnCount; ++col) {
             const auto sourceIndex = sourceModel->index(row, col);
             const auto proxyIndex = proxyModel->index(row, col);
-            auto childProxy = std::make_shared<ProxyIndexInfo>(sourceIndex, proxyIndex, nullptr);
+            auto childProxy = new ProxyIndexInfo(sourceIndex, proxyIndex, nullptr);
             proxyInfo.m_children.push_back(childProxy);
         }
     }

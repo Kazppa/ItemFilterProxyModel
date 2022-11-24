@@ -61,7 +61,8 @@ ExampleWidget::ExampleWidget(QWidget *parent) : QWidget(parent)
     setMinimumSize(800, 600);
 
     connect(m_filterLineEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
-        const auto filters = text.split(QRegularExpression(QStringLiteral(",\\s*")), Qt::SkipEmptyParts);
+        static QRegularExpression splitRegExp(QStringLiteral(",\\s*"));
+        const auto filters = text.split(splitRegExp, Qt::SkipEmptyParts);
         m_proxyModel->setFilteredNames(std::move(filters));
         m_proxyTreeView->expandAll();
     });
@@ -109,7 +110,7 @@ void ExampleWidget::onViewScrollActionTriggered(int action)
     const auto toScrollBar = fromScrollBar == basicViewScrollBar ? restructuredViewScrollBar : basicViewScrollBar;
     const auto newValue = fromScrollBar->value();
 
-    // Calculate the relative value to get a percent of the range
+    // Calculate the relative value to get a percentage of the range
     const auto fromMin = fromScrollBar->minimum();
     const auto fromMax = fromScrollBar->maximum();
     const auto relative = ((newValue - fromMin) * 100.0) / (fromMax - fromMin);
@@ -117,7 +118,7 @@ void ExampleWidget::onViewScrollActionTriggered(int action)
     const auto toMin = toScrollBar->minimum();
     const auto toMax = toScrollBar->maximum();
     const auto toValue = ((relative * (toMax - toMin)) / 100) + toMin;
-    toScrollBar->setValue((int) std::round(toValue));
+    toScrollBar->setValue(static_cast<int>(std::round(toValue)));
 }
 
 void ExampleWidget::onViewIndexChanged(const QModelIndex &newIndex)

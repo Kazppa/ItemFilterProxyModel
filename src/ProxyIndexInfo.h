@@ -3,7 +3,6 @@
 
 #include <QModelIndex>
 
-#include <memory>
 #include <vector>
 
 namespace kaz
@@ -26,7 +25,7 @@ namespace kaz
                 return false;
             }
 
-            bool operator()(const std::shared_ptr<ProxyIndexInfo>& left, const std::pair<int, int> &right) const
+            bool operator()(const ProxyIndexInfo* left, const std::pair<int, int> &right) const
             {
                 const auto leftRow = left->row();
                 if (leftRow < right.first) {
@@ -41,19 +40,19 @@ namespace kaz
 
         // Children are sorted by indexes (by row and then by column)
         // for example : [ {0,0}, {0,1}, {0,2}, {1,0}, {1,1}, {1,2} ]
-        using ChildrenList = typename std::vector<std::shared_ptr<ProxyIndexInfo>>;
+        using ChildrenList = typename std::vector<ProxyIndexInfo *>;
 
         // Iterate through all children's index of a given column
         struct ColumnIterator final
         {
             using iterator_category = std::random_access_iterator_tag;
             using difference_type = int;
-            using value_type = const std::shared_ptr<ProxyIndexInfo>;
-            using reference = value_type&;
+            using value_type = ProxyIndexInfo *;
+            using reference = ProxyIndexInfo&;
             using pointer = ChildrenList::const_iterator;
 
-            reference operator*() const { return *m_it; };
-            pointer operator->() const { return m_it; };
+            value_type operator*() const { return *m_it; };
+            value_type operator->() const { return *m_it; };
 
             ColumnIterator operator+(int row) const;
             ColumnIterator operator-(int row) const;
@@ -90,9 +89,7 @@ namespace kaz
             ChildrenList::const_iterator m_it;
         };
 
-        ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParentIndex);
-
-        ~ProxyIndexInfo();
+        ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex, ProxyIndexInfo *proxyParentIndex);
 
         // Return an iterator to the first row of the given column
         ColumnIterator columnBegin(int column = 0) const;
@@ -105,8 +102,8 @@ namespace kaz
 
         // Return the child index at the given row and column
         ChildrenList::const_iterator childIt(int row, int column = 0) const;
-        std::shared_ptr<ProxyIndexInfo> childAt(int row, int column) const;
-        std::shared_ptr<ProxyIndexInfo> childAt(const QModelIndex &idx) const;
+        ProxyIndexInfo * childAt(int row, int column) const;
+        ProxyIndexInfo * childAt(const QModelIndex &idx) const;
 
         // return a pair of iterator [begin, end[
         std::pair<ChildrenList::iterator, ChildrenList::iterator> childRange(const int firstRow, const int lastRow);
@@ -131,7 +128,7 @@ namespace kaz
 
         QPersistentModelIndex m_source;
         QModelIndex m_index;
-        std::shared_ptr<ProxyIndexInfo> m_parent;
+        ProxyIndexInfo * m_parent = nullptr;
         ChildrenList m_children{};
     };
 

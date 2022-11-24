@@ -3,7 +3,6 @@
 
 #include <QtCore/QAbstractProxyModel>
 
-
 namespace kaz
 {
 
@@ -17,7 +16,7 @@ class ItemFilterProxyModel : public QAbstractProxyModel
 public:
     explicit ItemFilterProxyModel(QObject *parent);
 
-    virtual ~ItemFilterProxyModel();
+    ~ItemFilterProxyModel();
 
     Q_DISABLE_COPY(ItemFilterProxyModel);
 
@@ -37,7 +36,7 @@ public:
 
     QModelIndex mapFromSource(const QModelIndex &sourceIndex) const override;
 
-    // Return false if the row must be hidden by the proxy model
+    // Returns false if the row must be hidden by the proxy model
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const = 0;
      
     void invalidateRowsFilter();

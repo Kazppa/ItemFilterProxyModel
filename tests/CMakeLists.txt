@@ -1,13 +1,20 @@
-find_package(Qt6 COMPONENTS Test REQUIRED)
+cmake_minimum_required(VERSION 3.18)
 
-add_executable(ItemFilterProxyModelUnitTests
+find_package(Qt6 COMPONENTS Core Gui Test REQUIRED)
+
+add_executable(ItemFilterProxyModelTests
     main.cpp
     ColumnIteratorTest.h
     ColumnIteratorTest.cpp
 )
 
-target_link_libraries(ItemFilterProxyModelUnitTests PRIVATE Qt6::Test ItemFilterProxyModel)
-target_include_directories(ItemFilterProxyModelUnitTests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(ItemFilterProxyModelTests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
-add_test(NAME ItemFilterProxyModelUnitTests
-    COMMAND ItemFilterProxyModelUnitTests)
+target_link_libraries(ItemFilterProxyModelTests PRIVATE
+    Qt::Gui
+    Qt6::Test
+    ItemFilterProxyModel
+)
+
+add_test(NAME ItemFilterProxyModelTests
+    COMMAND ItemFilterProxyModelTests)

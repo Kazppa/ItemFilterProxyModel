@@ -7,11 +7,11 @@ using namespace kaz;
 namespace
 {
     template<typename Predicate>
-    std::optional<std::shared_ptr<ProxyIndexInfo>> find_if_recursive(Predicate&& predicate, const ItemFilterProxyModelPrivate *proxyModel)
+    std::optional<ProxyIndexInfo *> find_if_recursive(Predicate&& predicate, const ItemFilterProxyModelPrivate *proxyModel)
     {
-        QStack<std::shared_ptr<ProxyIndexInfo>> stack;
-        const auto& rootInfo = proxyModel->m_proxyIndexHash.at(QModelIndex());
-        for (const auto& proxyInfo : rootInfo->m_children) {
+        QStack<ProxyIndexInfo *> stack;
+        const auto* rootInfo = proxyModel->m_proxyIndexHash.at(QModelIndex());
+        for (auto&& proxyInfo : rootInfo->m_children) {
             if (predicate(proxyInfo)) {
                 return proxyInfo;
             }
@@ -20,7 +20,7 @@ namespace
 
         while (!stack.empty()) {
             const auto parentInfo = stack.pop();
-            for (const auto& proxyInfo : parentInfo->m_children) {
+            for (auto&& proxyInfo : parentInfo->m_children) {
                 if (predicate(proxyInfo)) {
                     return proxyInfo;
                 }
@@ -73,12 +73,12 @@ bool SourceModelIndexLessComparator::operator()(const QModelIndex& left, const Q
     return indexComparator(*leftLastIndex, *rightLastIndex);
 }
 
-bool SourceModelIndexLessComparator::operator()(const QModelIndex &left, const std::shared_ptr<ProxyIndexInfo>& right) const
+bool SourceModelIndexLessComparator::operator()(const QModelIndex &left, const ProxyIndexInfo * right) const
 {
     return this->operator()(left, right->m_source);
 }
 
-bool SourceModelIndexLessComparator::operator()(const std::shared_ptr<ProxyIndexInfo>& left, const QModelIndex &right) const
+bool SourceModelIndexLessComparator::operator()(const ProxyIndexInfo * left, const QModelIndex &right) const
 {
     return this->operator()(left->m_source, right);
 }
@@ -128,7 +128,7 @@ QModelIndex ItemFilterProxyModelPrivate::parent(const QModelIndex &childIndex) c
     const auto it = m_proxyIndexHash.find(childIndex);
     if(it == m_proxyIndexHash.end()) {
  #ifdef KAZ_DEBUG
-        const auto opt = find_if_recursive([=](const auto& proxyInfo) {
+        const auto opt = find_if_recursive([=](const auto* proxyInfo) {
             return proxyInfo->m_index == childIndex;
         }, this);
         const auto proxyInfo = opt.value();
@@ -198,7 +198,7 @@ QModelIndex ItemFilterProxyModelPrivate::mapFromSource(const QModelIndex &source
     return it == m_sourceIndexHash.end() ? QModelIndex() : (*it)->m_index;
 }
 
-std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ItemFilterProxyModelPrivate::mapFromSourceRange(const QModelIndex &sourceLeft,
+std::vector<std::pair<ProxyIndexInfo *, ProxyIndexInfo *>> ItemFilterProxyModelPrivate::mapFromSourceRange(const QModelIndex &sourceLeft,
     const QModelIndex& sourceRight, const SelectionParameters parameters) const
 {
     const auto sourceModel = m_proxyModel->sourceModel();
@@ -211,9 +211,10 @@ std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyInde
     const auto sourceRightRow = sourceRight.row();
     const auto column = sourceLeft.column();
     
-    std::shared_ptr<ProxyIndexInfo> proxyIndexBeginRange, proxyIndexEndRange;
-    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ranges;
-    const auto appendIndexToRange = [&](const std::shared_ptr<ProxyIndexInfo> &proxyInfo) {
+    ProxyIndexInfo* proxyIndexBeginRange = nullptr;
+    ProxyIndexInfo* proxyIndexEndRange = nullptr;
+    std::vector<std::pair<ProxyIndexInfo *, ProxyIndexInfo *>> ranges;
+    const auto appendIndexToRange = [&](ProxyIndexInfo * proxyInfo) {
         if (!proxyIndexBeginRange) {
             // New range
             proxyIndexBeginRange = proxyInfo;
@@ -228,7 +229,7 @@ std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyInde
             // End of the range, insert in the results
             ranges.emplace_back(proxyIndexBeginRange, proxyIndexEndRange ? proxyIndexEndRange : proxyIndexBeginRange);
             proxyIndexBeginRange = proxyInfo;
-            proxyIndexEndRange.reset();
+            proxyIndexEndRange = nullptr;
         }
     };
 
@@ -253,7 +254,7 @@ std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyInde
     return ranges;
 }
 
-std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ItemFilterProxyModelPrivate::mapFromSourceRange(
+std::vector<std::pair<ProxyIndexInfo *, ProxyIndexInfo *>> ItemFilterProxyModelPrivate::mapFromSourceRange(
         const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const SelectionParameters parameters) const
 {
     const auto sourceModel = m_proxyModel->sourceModel();
@@ -267,14 +268,14 @@ std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyInde
     return mapFromSourceRange(sourceLeft, sourceRight, parameters);
 }
 
-std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyParentIndex(const QModelIndex &sourceIndex) const
+ProxyIndexInfo * ItemFilterProxyModelPrivate::getProxyParentIndex(const QModelIndex &sourceIndex) const
 {
     Q_ASSERT(sourceIndex.isValid());
     Q_ASSERT(sourceIndex.model() == m_proxyModel->sourceModel());
     return getProxyNearestIndex(sourceIndex.parent());
 }
 
-std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyNearestIndex(QModelIndex sourceIndex) const
+ProxyIndexInfo * ItemFilterProxyModelPrivate::getProxyNearestIndex(QModelIndex sourceIndex) const
 {
     Q_ASSERT(sourceIndex.isValid());
     Q_ASSERT(sourceIndex.model() == m_proxyModel->sourceModel());
@@ -289,14 +290,14 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::getProxyNearestInde
     return *it;
 }
 
-std::vector<std::shared_ptr<ProxyIndexInfo>> ItemFilterProxyModelPrivate::getProxyChildrenIndexes(const QModelIndex &sourceParentIndex) const
+std::vector<ProxyIndexInfo *> ItemFilterProxyModelPrivate::getProxyChildrenIndexes(const QModelIndex &sourceParentIndex) const
 {
     const auto sourceModel = m_proxyModel->sourceModel();
     Q_ASSERT(sourceParentIndex.model() == sourceModel);
     const auto column = sourceParentIndex.column() >= 0 ? sourceParentIndex.column() : 0;
     const auto sourceMappingEnd = m_sourceIndexHash.end();
 
-    std::vector<std::shared_ptr<ProxyIndexInfo>> visibleChildren;
+    std::vector<ProxyIndexInfo *> visibleChildren;
     const auto childrenCount = sourceModel->rowCount(sourceParentIndex);
     for (int row = 0; row < childrenCount; ++row) {
         const auto childSourceIndex = sourceModel->index(row, column, sourceParentIndex);
@@ -322,7 +323,7 @@ std::vector<std::shared_ptr<ProxyIndexInfo>> ItemFilterProxyModelPrivate::getPro
     return visibleChildren;
 }
 
-ItemFilterProxyModelPrivate::InsertInfo ItemFilterProxyModelPrivate::searchInsertableRow(const std::shared_ptr<ProxyIndexInfo> &proxyInfo, const QModelIndex &sourceIndex)
+ItemFilterProxyModelPrivate::InsertInfo ItemFilterProxyModelPrivate::searchInsertableRow(const ProxyIndexInfo *proxyInfo, const QModelIndex &sourceIndex)
 {
     Q_ASSERT(sourceIndex.isValid());
     auto& proxyChildren = proxyInfo->m_children;
@@ -340,7 +341,7 @@ ItemFilterProxyModelPrivate::InsertInfo ItemFilterProxyModelPrivate::searchInser
     };
 }
 
-void ItemFilterProxyModelPrivate::updateChildrenRows(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo)
+void ItemFilterProxyModelPrivate::updateChildrenRows(const ProxyIndexInfo * parentProxyInfo)
 {
     auto& parentChildren = parentProxyInfo->m_children;
     if (parentChildren.empty()) {
@@ -348,7 +349,7 @@ void ItemFilterProxyModelPrivate::updateChildrenRows(const std::shared_ptr<Proxy
     }
 
     int expectedRow = 0, col = 0;
-    for (auto& child : parentChildren) {
+    for (auto&& child : parentChildren) {
 #ifdef KAZ_DEBUG
         const auto txt = child->m_source.data().toString();
 #endif
@@ -381,14 +382,14 @@ void ItemFilterProxyModelPrivate::updateChildrenRows(const std::shared_ptr<Proxy
     Q_ASSERT(parentProxyInfo->assertChildrenAreValid(true));
 }
 
-std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::appendSourceIndexInSortedIndexes(const QModelIndex& sourceIndex, const std::shared_ptr<ProxyIndexInfo> &proxyParent)
+ProxyIndexInfo * ItemFilterProxyModelPrivate::appendSourceIndexInSortedIndexes(const QModelIndex& sourceIndex, ProxyIndexInfo *proxyParent)
 {
     Q_ASSERT(sourceIndex.isValid());
     Q_ASSERT(proxyParent);
     
     int proxyRow;
     if (proxyParent->hasChildren()) {
-        const auto& lastProxyRow = proxyParent->m_children.back();
+        const auto* lastProxyRow = proxyParent->m_children.back();
         if (lastProxyRow->m_source.row() == sourceIndex.row() && lastProxyRow->m_source.parent() == sourceIndex.parent()) {
             proxyRow = lastProxyRow->row();
         }
@@ -402,7 +403,7 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::appendSourceIndexIn
 
     const auto column = sourceIndex.column();
     const auto proxyIndex = createIndex(proxyRow, column, sourceIndex.internalId());
-    auto child = std::make_shared<ProxyIndexInfo>(sourceIndex, proxyIndex, proxyParent);
+    auto child = new ProxyIndexInfo(sourceIndex, proxyIndex, proxyParent);
     proxyParent->m_children.push_back(child);
 
     m_sourceIndexHash.emplace(sourceIndex, child);
@@ -410,39 +411,38 @@ std::shared_ptr<ProxyIndexInfo> ItemFilterProxyModelPrivate::appendSourceIndexIn
     return child;
 }
 
-void ItemFilterProxyModelPrivate::eraseRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow)
+void ItemFilterProxyModelPrivate::eraseRowsImpl(ProxyIndexInfo * parentProxyInfo, int firstRow, int lastRow)
 {
     Q_ASSERT(!parentProxyInfo->m_index.isValid() || parentProxyInfo->m_index.model() == m_proxyModel);
     
     const auto [childBegin, childEnd] = parentProxyInfo->childRange(firstRow, lastRow);
-    QStack<std::shared_ptr<ProxyIndexInfo>> stack;
-    std::for_each(childBegin, childEnd, [&, this](const std::shared_ptr<ProxyIndexInfo>& proxyInfo) {
+    QStack<ProxyIndexInfo *> stack;
+    std::for_each(childBegin, childEnd, [&, this](ProxyIndexInfo * proxyInfo) {
         m_sourceIndexHash.remove(proxyInfo->m_source);
         m_proxyIndexHash.erase(proxyInfo->m_index);
-        for (auto& child : proxyInfo->m_children) {
-            child->m_parent.reset();
-            stack.push(std::move(child));
+        for (auto* child : proxyInfo->m_children) {
+            stack.push(child);
         }
+        delete proxyInfo;
     });
 
     while (!stack.empty()) {
-        const auto parentInfo = std::move(stack.pop());
+        const auto parentInfo = stack.pop();
 
         m_sourceIndexHash.remove(parentInfo->m_source);
         m_proxyIndexHash.erase(parentInfo->m_index);
-        for (auto& child : parentInfo->m_children) {
-            child->m_parent.reset();
-            stack.push(std::move(child));
+        for (auto* child : parentInfo->m_children) {
+            stack.push(child);
         }
-        parentInfo->m_children.clear();
+        delete parentInfo;
     }
 
     parentProxyInfo->m_children.erase(childBegin, childEnd);
     updateChildrenRows(parentProxyInfo);
 }
 
-void ItemFilterProxyModelPrivate::moveRowsImpl(const std::shared_ptr<ProxyIndexInfo>& parentProxyInfo, int firstRow, int lastRow,
-        const std::shared_ptr<ProxyIndexInfo>& destinationInfo, int destinationRow)
+void ItemFilterProxyModelPrivate::moveRowsImpl(ProxyIndexInfo * parentProxyInfo, int firstRow, int lastRow,
+        ProxyIndexInfo * destinationInfo, int destinationRow)
 {
     Q_ASSERT(parentProxyInfo);
     Q_ASSERT(firstRow >= 0 && firstRow <= lastRow);
@@ -475,7 +475,7 @@ void ItemFilterProxyModelPrivate::resetProxyIndexes()
     m_proxyIndexHash.clear();
 
     // Parent of all root nodes
-    auto hiddenRootIndex = std::make_shared<ProxyIndexInfo>(QModelIndex(), QModelIndex(), nullptr);
+    auto hiddenRootIndex = new ProxyIndexInfo(QModelIndex(), QModelIndex(), nullptr);
     m_proxyIndexHash.emplace(QModelIndex(), hiddenRootIndex);
     const auto rootRowCount = sourceModel->rowCount();
     const auto rootColumnCount = sourceModel->columnCount();
@@ -496,17 +496,16 @@ void ItemFilterProxyModelPrivate::resetProxyIndexes()
     }
 }
 
-void ItemFilterProxyModelPrivate::fillChildrenIndexesRecursively(const QModelIndex &sourceParent, const std::shared_ptr<ProxyIndexInfo>& parentInfo)
+void ItemFilterProxyModelPrivate::fillChildrenIndexesRecursively(const QModelIndex &sourceParent, ProxyIndexInfo * parentInfo)
 {
     Q_ASSERT(sourceParent.isValid());
     Q_ASSERT(sourceParent.model() == m_proxyModel->sourceModel());
     Q_ASSERT(parentInfo);
 
     const auto sourceModel = m_proxyModel->sourceModel();
-    const auto& proxyParent = parentInfo->m_index;
     const auto rowCount = sourceModel->rowCount(sourceParent);
     const auto columnCount = sourceModel->columnCount(sourceParent);
-    Q_ASSERT(!proxyParent.isValid() ||  proxyParent.model() == m_proxyModel);
+    Q_ASSERT(!parentInfo->m_index.isValid() ||  parentInfo->m_index.model() == m_proxyModel);
 
     for (auto sourceRow = 0; sourceRow < rowCount; ++sourceRow) {
         const auto isChildVisible = m_proxyModel->filterAcceptsRow(sourceRow, sourceParent);
@@ -565,16 +564,16 @@ std::vector<QModelIndex> ItemFilterProxyModelPrivate::getSourceVisibleChildren(c
     return visibleIndexes;
 }
 
-std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>>
+std::vector<std::pair<ProxyIndexInfo *, ProxyIndexInfo *>>
 ItemFilterProxyModelPrivate::splitInRowRanges(ProxyIndexInfo::ChildrenList&& indexes) const
 {
     if (indexes.empty()) {
         return {};
     }
 
-    std::sort(indexes.begin(), indexes.end(), [](const std::shared_ptr<ProxyIndexInfo>& left, const std::shared_ptr<ProxyIndexInfo>& right) {
-        const auto& leftParent = left->m_parent;
-        const auto& rightParent = right->m_parent;
+    std::sort(indexes.begin(), indexes.end(), [](const ProxyIndexInfo * left, const ProxyIndexInfo * right) {
+        const auto* leftParent = left->m_parent;
+        const auto* rightParent = right->m_parent;
         if (leftParent == rightParent) {
             // same parent, compare rows
             return left->row() < right->row();
@@ -583,22 +582,22 @@ ItemFilterProxyModelPrivate::splitInRowRanges(ProxyIndexInfo::ChildrenList&& ind
         return leftParent < rightParent;
     });
 
-    std::vector<std::pair<std::shared_ptr<ProxyIndexInfo>, std::shared_ptr<ProxyIndexInfo>>> ranges;
-    std::shared_ptr<ProxyIndexInfo> beginRange = std::move(indexes.front());
+    std::vector<std::pair<ProxyIndexInfo *, ProxyIndexInfo *>> ranges;
+    ProxyIndexInfo * beginRange = std::move(indexes.front());
     auto previousIndex = beginRange;
     for (std::size_t size = indexes.size(), i = 1; i < size; ++i) {
-        const auto& index = indexes[i];
+        auto* index = indexes[i];
         int expectedRow = previousIndex->row() + 1;
         if (index->m_parent == beginRange->m_parent && index->row() == expectedRow) {
             // Keep going in the same range
-            previousIndex = std::move(index);
+            previousIndex = index;
             continue;
         }
         else {
             // End of current range
             ranges.push_back(std::make_pair(std::move(beginRange), std::move(previousIndex)));
             beginRange = index;
-            previousIndex = std::move(index);
+            previousIndex = index;
         }
     }
     ranges.push_back(std::make_pair(std::move(beginRange), std::move(previousIndex)));

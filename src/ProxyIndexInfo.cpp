@@ -2,19 +2,9 @@
 
 using namespace kaz;
 
-namespace
-{
-    // Helper to use multiple lambdas as a comparator
-    template<typename ...Callables>
-    struct make_visitor : Callables... { using Callables::operator()...; };
-
-    template<typename ...Callables>
-    make_visitor(Callables...) -> make_visitor<Callables...>;
-}
-
 
 ProxyIndexInfo::ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex &proxyIndex,
-    const std::shared_ptr<ProxyIndexInfo> &proxyParentIndex) :
+    ProxyIndexInfo *proxyParentIndex) :
     m_source(sourceIndex),
     m_index(proxyIndex),
     m_parent(proxyParentIndex)
@@ -27,13 +17,6 @@ ProxyIndexInfo::ProxyIndexInfo(const QModelIndex &sourceIndex, const QModelIndex
         Q_ASSERT(proxyIndex.model() == proxyParentIndex->m_index.model());
     }
 #endif
-}
-
-ProxyIndexInfo::~ProxyIndexInfo()
-{
-    for (auto& child : m_children) {
-        child->m_parent.reset();
-    }
 }
 
 ProxyIndexInfo::ColumnIterator ProxyIndexInfo::columnBegin(int column) const
@@ -66,7 +49,7 @@ ProxyIndexInfo::ChildrenList::const_iterator ProxyIndexInfo::childIt(int row, in
     return m_children.begin() + (row * colCount) + column;
 }
 
-std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(int row, int column) const
+ProxyIndexInfo * ProxyIndexInfo::childAt(int row, int column) const
 {
 #ifdef QT_DEBUG
     const auto [ rowCount, colCount ] = rowColCount();
@@ -82,7 +65,7 @@ std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(int row, int column) con
     return *(m_children.begin() + (row * colCount) + column);
 }
 
-std::shared_ptr<ProxyIndexInfo> ProxyIndexInfo::childAt(const QModelIndex &idx) const
+ProxyIndexInfo * ProxyIndexInfo::childAt(const QModelIndex &idx) const
 {
     Q_ASSERT(idx.parent() == m_index);
     return childAt(idx.row(), idx.column());
@@ -140,7 +123,7 @@ bool ProxyIndexInfo::assertChildrenAreValid(bool recursively) const
 
     const auto [rowCount, colCount] = rowColCount();
     int expectedRow = 0, expectedCol = 0;
-    for (const auto& child : m_children) {
+    for (const auto* child : m_children) {
         if(child->row() != expectedRow) {
             Q_ASSERT(false);
             return false;

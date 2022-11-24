@@ -1,4 +1,6 @@
-find_package(Qt6 COMPONENTS Test REQUIRED)
+cmake_minimum_required(VERSION 3.18)
+
+find_package(Qt6 COMPONENTS Core Gui Widgets Test REQUIRED)
 
 add_executable(ItemFilterProxyModelExample
         main.cpp
@@ -11,4 +13,9 @@ add_executable(ItemFilterProxyModelExample
         ExampleTreeView.h
         ExampleTreeView.cpp)
 
-target_link_libraries(ItemFilterProxyModelExample PRIVATE Qt6::Test ItemFilterProxyModel)
+target_link_libraries(ItemFilterProxyModelExample PRIVATE
+        Qt::Widgets
+        Qt::Gui
+        Qt6::Test
+        ItemFilterProxyModel
+)

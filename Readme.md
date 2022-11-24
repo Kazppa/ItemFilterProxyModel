@@ -47,6 +47,7 @@ bool MyCustomProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sour
     const auto sourceText = sourceModel()->data(sourceIndex).toString();
 
     if (sourceText == u"A1" || sourceText == u"B1" || sourceText == "C") {
+        // Hide the sourceRow
         return false;
     }
     return true;
@@ -71,18 +72,11 @@ treeView->setModel(proxyModel);
 ```
 
 ## Installation
-~~Copy paste both file from the [src](src) folder into your project and you're good to go ! ~~  
-*I guess the project became a bit more complex than that*
+**Release version coming soon.**
 
 **C++17** (or higher) is required.  
 
-<details><summary>The only dependencies are the C++ Standard Templated Library and Qt</summary>
-<pre>
-QtCore  
-QtGui  
-QtWidgets  
-</pre>
-</details>
+The only dependency is Qt Core :
 This class was made with (and for) Qt6 but might works with Qt5 (i didn't test it though).  
 
 ## Contributing
